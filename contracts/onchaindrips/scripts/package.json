@@ -1,0 +1,19 @@
+{
+  "name": "onchaindrips-scripts",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "publish": "tsx publish.ts",
+    "create-drop": "tsx createDrop.ts",
+    "mint-shirts": "tsx mintShirts.ts"
+  },
+  "dependencies": {
+    "@mysten/sui": "^1.45.2",
+    "dotenv": "^16.4.5"
+  },
+  "devDependencies": {
+    "tsx": "^4.19.2",
+    "typescript": "^5.6.3"
+  }
+}

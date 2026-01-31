@@ -1,0 +1,8 @@
+[package]
+name = "OnchainDrips"
+edition = "2024"
+
+[addresses]
+onchaindrips = "0x0"
+
+[dependencies]
