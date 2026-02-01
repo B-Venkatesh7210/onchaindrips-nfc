@@ -60,13 +60,45 @@ async function main() {
   }
 
   const changes = result.objectChanges ?? [];
-  const shirtCreates = changes.filter(
-    (c) => c.type === "created" && "objectType" in c && String((c as { objectType: string }).objectType).includes("Shirt")
-  ) as { type: "created"; objectId: string; objectType: string }[];
+  let shirtIds: string[] = [];
 
-  const shirtIds = shirtCreates.map((c) => c.objectId);
+  // Collect all created object IDs from objectChanges (shape may vary by RPC/SDK)
+  const createdIds: string[] = [];
+  for (const c of changes) {
+    const rec = c as Record<string, unknown>;
+    if (String(rec.type).toLowerCase() !== "created") continue;
+    const id = rec.objectId ?? (rec.reference as { objectId?: string })?.objectId;
+    if (typeof id === "string") createdIds.push(id);
+  }
+
+  // Filter to Shirt type by fetching object types
+  if (createdIds.length > 0) {
+    const objects = await client.multiGetObjects({ ids: createdIds, options: { showType: true } });
+    for (const obj of objects) {
+      const type = obj.data?.type;
+      if (type && String(type).includes("::onchaindrips::Shirt")) {
+        shirtIds.push(obj.data.objectId);
+      }
+    }
+  }
+
+  // Fallback: sender just received the shirts; fetch their owned objects and filter by Shirt type
   if (shirtIds.length === 0) {
-    console.log("[mint-shirts] No Shirt objects found in objectChanges.");
+    const sender = keypair.toSuiAddress();
+    const owned = await client.getOwnedObjects({
+      owner: sender,
+      options: { showType: true, showContent: true },
+    });
+    for (const o of owned.data) {
+      const type = o.data?.type;
+      if (type && String(type).includes("::onchaindrips::Shirt") && o.data?.objectId) {
+        shirtIds.push(o.data.objectId);
+      }
+    }
+  }
+
+  if (shirtIds.length === 0) {
+    console.log("[mint-shirts] No Shirt objects found. objectChanges length:", changes.length);
     process.exit(0);
     return;
   }

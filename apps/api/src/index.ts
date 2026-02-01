@@ -6,6 +6,7 @@
  */
 
 import "dotenv/config";
+import cors from "cors";
 import express, { type Request, type Response } from "express";
 import rateLimit from "express-rate-limit";
 import { SuiClient } from "@mysten/sui/client";
@@ -15,6 +16,9 @@ import { sponsorHandler } from "./routes/sponsor.js";
 
 const app = express();
 const client = new SuiClient({ url: config.rpcUrl });
+
+// Allow frontend (e.g. localhost:3000) to call this API
+app.use(cors({ origin: true }));
 
 // Rate limit: 100 requests per 15 minutes per IP (in-memory)
 const limiter = rateLimit({
