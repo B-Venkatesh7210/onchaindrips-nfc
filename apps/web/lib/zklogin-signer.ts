@@ -56,11 +56,21 @@ export async function signWithZkLogin(
 
 /**
  * Create a zkLogin signer object that can be used for signing
+ * Implements the same interface as Sui Keypair (signWithIntent, signTransaction, signPersonalMessage).
  */
 export function createZkLoginSigner(signerData: ZkLoginSignerData) {
   return {
     getAddress: () => getZkLoginAddress(signerData.jwt, signerData.userSalt),
-    
+
+    /** Sign bytes with an intent (e.g. "TransactionData" for sponsor flow). */
+    signWithIntent: async (bytes: Uint8Array, _intent: string) => {
+      const signature = await signWithZkLogin(bytes, signerData);
+      return {
+        signature,
+        bytes,
+      };
+    },
+
     signPersonalMessage: async (message: Uint8Array) => {
       const signature = await signWithZkLogin(message, signerData);
       return {
@@ -68,7 +78,7 @@ export function createZkLoginSigner(signerData: ZkLoginSignerData) {
         bytes: message,
       };
     },
-    
+
     signTransaction: async (transactionBytes: Uint8Array) => {
       const signature = await signWithZkLogin(transactionBytes, signerData);
       return {

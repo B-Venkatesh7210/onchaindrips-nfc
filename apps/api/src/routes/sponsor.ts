@@ -67,9 +67,10 @@ function validateClaimAndTransferAndGetShirtId(
 }
 
 export async function sponsorHandler(req: Request, res: Response): Promise<void> {
-  const body = req.body as { txBytesBase64?: string; userSignatureBase64?: string };
+  const body = req.body as { txBytesBase64?: string; userSignatureBase64?: string; senderAddress?: string };
   const txBytesBase64 = body?.txBytesBase64;
   const userSignatureBase64 = body?.userSignatureBase64;
+  const senderAddressFromClient = body?.senderAddress;
 
   if (!txBytesBase64 || typeof txBytesBase64 !== "string") {
     res.status(400).json({ error: "txBytesBase64 is required" });
@@ -89,16 +90,21 @@ export async function sponsorHandler(req: Request, res: Response): Promise<void>
   }
 
   let sender: string;
-  try {
-    const parsed = parseSerializedSignature(userSignatureBase64);
-    if (!("publicKey" in parsed) || !parsed.publicKey) {
-      res.status(400).json({ error: "userSignatureBase64 could not be parsed to get sender" });
+  if (typeof senderAddressFromClient === "string" && senderAddressFromClient.length > 0) {
+    // zkLogin: client sends sender address (signature format doesn't expose public key)
+    sender = normalizeSuiAddress(senderAddressFromClient);
+  } else {
+    try {
+      const parsed = parseSerializedSignature(userSignatureBase64);
+      if (!("publicKey" in parsed) || !parsed.publicKey) {
+        res.status(400).json({ error: "userSignatureBase64 could not be parsed to get sender" });
+        return;
+      }
+      sender = parsed.publicKey.toSuiAddress();
+    } catch {
+      res.status(400).json({ error: "userSignatureBase64 is invalid" });
       return;
     }
-    sender = parsed.publicKey.toSuiAddress();
-  } catch {
-    res.status(400).json({ error: "userSignatureBase64 is invalid" });
-    return;
   }
 
   let tx: Transaction;

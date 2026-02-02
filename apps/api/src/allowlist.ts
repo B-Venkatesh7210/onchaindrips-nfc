@@ -17,11 +17,15 @@ function loadAllowlist(): Set<string> {
     const raw = readFileSync(ALLOWLIST_PATH, "utf-8");
     const arr = JSON.parse(raw) as unknown;
     if (!Array.isArray(arr)) return new Set();
-    return new Set(
-      arr
-        .filter((id): id is string => typeof id === "string" && id.length > 0)
-        .map((id) => normalizeSuiAddress(id)),
-    );
+    const ids: string[] = [];
+    for (const item of arr) {
+      if (typeof item === "string" && item.length > 0) {
+        ids.push(normalizeSuiAddress(item));
+      } else if (item && typeof item === "object" && "objectId" in item && typeof (item as { objectId: string }).objectId === "string") {
+        ids.push(normalizeSuiAddress((item as { objectId: string }).objectId));
+      }
+    }
+    return new Set(ids);
   } catch {
     return new Set();
   }

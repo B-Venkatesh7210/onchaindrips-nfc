@@ -12,24 +12,30 @@ module onchaindrips::onchaindrips {
         id: UID,
     }
 
-    /// A drop (collection) with fixed supply. Tracks how many shirts have been minted.
+    /// A drop (collection) with fixed supply.
+    /// next_serial: next serial to assign when creating shirts. minted_count: number claimed (transferred to users), incremented in claim_and_transfer.
+    /// No Walrus blob for the drop itself; drop is just event metadata.
     public struct Drop has key {
         id: UID,
         name: String,
+        company_name: String,
+        event_name: String,
         total_supply: u64,
+        next_serial: u64,
         minted_count: u64,
-        walrus_blob_id: vector<u8>,
         created_at_ms: u64,
     }
 
     /// A shirt NFT. Belongs to a drop; can be claimed/transferred once.
+    /// Image and metadata are separate Walrus blobs.
     public struct Shirt has key, store {
         id: UID,
         drop_id: ID,
         serial: u64,
         is_minted: bool,
         minted_at_ms: u64,
-        walrus_blob_id: vector<u8>,
+        walrus_blob_id_image: vector<u8>,
+        walrus_blob_id_metadata: vector<u8>,
     }
 
     // ============ Init ============
@@ -45,56 +51,64 @@ module onchaindrips::onchaindrips {
     // ============ Admin entry functions ============
 
     /// Create a new drop. Caller must hold AdminCap. Drop is transferred to sender.
+    /// minted_count starts at 0; no Walrus blob for the drop.
     public entry fun create_drop(
         _admin: &AdminCap,
-        name: String,
+        drop_name: String,
+        company_name: String,
+        event_name: String,
         total_supply: u64,
-        walrus_blob_id: vector<u8>,
         clock: &Clock,
         ctx: &mut TxContext,
     ) {
         let drop = Drop {
             id: object::new(ctx),
-            name,
+            name: drop_name,
+            company_name,
+            event_name,
             total_supply,
+            next_serial: 0,
             minted_count: 0,
-            walrus_blob_id,
             created_at_ms: clock::timestamp_ms(clock),
         };
         transfer::transfer(drop, tx_context::sender(ctx));
     }
 
-    /// Mint `count` shirts for the given drop. Serial numbers continue from drop.minted_count.
-    /// Shirts are transferred to the sender. Fails if count would exceed total_supply.
+    /// Mint `count` shirts for the given drop. Serial numbers from drop.next_serial; minted_count unchanged (incremented only in claim_and_transfer).
+    /// drop has all drop details (name, company_name, event_name, total_supply, etc.).
+    /// Fails if count would exceed total_supply.
     public entry fun mint_shirts(
         _admin: &AdminCap,
         drop: &mut Drop,
         count: u64,
-        walrus_blob_id: vector<u8>,
+        walrus_blob_id_image: vector<u8>,
+        walrus_blob_id_metadata: vector<u8>,
         ctx: &mut TxContext,
     ) {
-        assert!(drop.minted_count + count <= drop.total_supply, EExceedsTotalSupply);
+        assert!(drop.next_serial + count <= drop.total_supply, EExceedsTotalSupply);
         let sender = tx_context::sender(ctx);
         let mut i = 0u64;
         while (i < count) {
-            let serial = drop.minted_count;
+            let serial = drop.next_serial;
             let shirt = Shirt {
                 id: object::new(ctx),
                 drop_id: object::id(drop),
                 serial,
                 is_minted: false,
                 minted_at_ms: 0,
-                walrus_blob_id: copy_vector(&walrus_blob_id),
+                walrus_blob_id_image: copy_vector(&walrus_blob_id_image),
+                walrus_blob_id_metadata: copy_vector(&walrus_blob_id_metadata),
             };
             transfer::transfer(shirt, sender);
-            drop.minted_count = serial + 1;
+            drop.next_serial = serial + 1;
             i = i + 1;
         };
     }
 
-    /// Mark shirt as minted and transfer it to `recipient`. Fails if already minted.
+    /// Mark shirt as minted and transfer it to `recipient`. Increments drop.minted_count by 1. Fails if already minted.
     public entry fun claim_and_transfer(
         mut shirt: Shirt,
+        drop: &mut Drop,
         recipient: address,
         clock: &Clock,
         _ctx: &mut TxContext,
@@ -102,6 +116,7 @@ module onchaindrips::onchaindrips {
         assert!(!shirt.is_minted, EShirtAlreadyMinted);
         shirt.is_minted = true;
         shirt.minted_at_ms = clock::timestamp_ms(clock);
+        drop.minted_count = drop.minted_count + 1;
         transfer::transfer(shirt, recipient);
     }
 
@@ -111,8 +126,20 @@ module onchaindrips::onchaindrips {
         drop.name
     }
 
+    public fun drop_company_name(drop: &Drop): String {
+        drop.company_name
+    }
+
+    public fun drop_event_name(drop: &Drop): String {
+        drop.event_name
+    }
+
     public fun drop_total_supply(drop: &Drop): u64 {
         drop.total_supply
+    }
+
+    public fun drop_next_serial(drop: &Drop): u64 {
+        drop.next_serial
     }
 
     public fun drop_minted_count(drop: &Drop): u64 {
@@ -137,6 +164,14 @@ module onchaindrips::onchaindrips {
 
     public fun shirt_minted_at_ms(shirt: &Shirt): u64 {
         shirt.minted_at_ms
+    }
+
+    public fun shirt_walrus_blob_id_image(shirt: &Shirt): vector<u8> {
+        shirt.walrus_blob_id_image
+    }
+
+    public fun shirt_walrus_blob_id_metadata(shirt: &Shirt): vector<u8> {
+        shirt.walrus_blob_id_metadata
     }
 
     // ============ Private ============

@@ -2,17 +2,14 @@
 
 import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
-import { fetchShirt, type ShirtResponse } from "@/lib/api";
-import { sponsorTransaction } from "@/lib/api";
 import {
-  buildClaimAndTransferKindBytes,
-  executeSponsoredTransaction,
-  fromBase64,
-  signKindBytesForSponsor,
-  signTransactionBytes,
-  toBase64,
-} from "@/lib/sui";
-import { getStoredAddress, getStoredSigner, loginWithGoogle, logout } from "@/lib/auth";
+  fetchShirt,
+  claimShirt,
+  fetchWalrusBlob,
+  walrusBlobIdToString,
+  type ShirtResponse,
+} from "@/lib/api";
+import { getStoredAddress, loginWithGoogle, logout } from "@/lib/auth";
 
 function formatDate(ms: number | null): string {
   if (ms == null) return "—";
@@ -40,6 +37,7 @@ export default function ShirtPage() {
   const [userAddress, setUserAddress] = useState<string | null>(null);
   const [minting, setMinting] = useState(false);
   const [mintTxDigest, setMintTxDigest] = useState<string | null>(null);
+  const [walrusMetadata, setWalrusMetadata] = useState<Record<string, unknown> | null>(null);
 
   const loadShirt = useCallback(async () => {
     if (!objectId) return;
@@ -59,6 +57,23 @@ export default function ShirtPage() {
   useEffect(() => {
     loadShirt();
   }, [loadShirt]);
+
+  // If shirt has walrus_blob_id_metadata, fetch metadata from Walrus (name, description, image URL)
+  useEffect(() => {
+    if (!shirt) return;
+    const blobId = walrusBlobIdToString(shirt.walrus_blob_id_metadata);
+    if (!blobId) {
+      setWalrusMetadata(null);
+      return;
+    }
+    let cancelled = false;
+    fetchWalrusBlob(blobId).then((data) => {
+      if (!cancelled && data) setWalrusMetadata(data);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [shirt?.objectId, shirt?.walrus_blob_id_metadata]);
 
   useEffect(() => {
     setUserAddress(getStoredAddress());
@@ -82,24 +97,10 @@ export default function ShirtPage() {
 
   const handleMint = useCallback(async () => {
     if (!shirt || shirt.is_minted || !userAddress) return;
-    const signer = getStoredSigner();
-    if (!signer) return;
     setMinting(true);
     setError(null);
     try {
-      const kindBytes = await buildClaimAndTransferKindBytes(objectId, userAddress);
-      const userSigKind = await signKindBytesForSponsor(signer, kindBytes);
-      const { sponsoredTxBytesBase64, sponsorSignatureBase64 } = await sponsorTransaction(
-        toBase64(kindBytes),
-        userSigKind,
-      );
-      const fullTxBytes = fromBase64(sponsoredTxBytesBase64);
-      const userSigFull = await signTransactionBytes(signer, fullTxBytes);
-      const { digest } = await executeSponsoredTransaction(
-        fullTxBytes,
-        userSigFull,
-        sponsorSignatureBase64,
-      );
+      const { digest } = await claimShirt(objectId, userAddress);
       setMintTxDigest(digest);
       await loadShirt();
     } catch (e) {
@@ -161,8 +162,35 @@ export default function ShirtPage() {
 
         {shirt.is_minted ? (
           <div className="bg-white rounded-xl border border-neutral-200 p-6 shadow-sm">
-            <h1 className="text-lg font-semibold text-neutral-800 mb-1">Shirt NFT</h1>
-            <p className="text-neutral-500 text-sm mb-4">Drop name placeholder</p>
+            <h1 className="text-lg font-semibold text-neutral-800 mb-1">
+              {walrusMetadata && typeof walrusMetadata.name === "string"
+                ? walrusMetadata.name
+                : "Shirt NFT"}
+            </h1>
+            {walrusMetadata && typeof walrusMetadata.description === "string" && (
+              <p className="text-neutral-500 text-sm mb-4">{walrusMetadata.description}</p>
+            )}
+            {(() => {
+              const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "";
+              const imageBlobId = walrusBlobIdToString(shirt.walrus_blob_id_image);
+              const imageSrc =
+                (walrusMetadata && typeof walrusMetadata.image === "string" && walrusMetadata.image) ||
+                (imageBlobId && apiUrl ? `${apiUrl}/walrus/${encodeURIComponent(imageBlobId)}` : null);
+              return imageSrc ? (
+                <div className="mb-4 rounded-lg overflow-hidden bg-neutral-100">
+                  <img
+                    src={imageSrc}
+                    alt={typeof walrusMetadata?.name === "string" ? walrusMetadata.name : "Shirt"}
+                    className="w-full h-auto object-cover"
+                  />
+                </div>
+              ) : null;
+            })()}
+            {!walrusMetadata?.description &&
+              !walrusMetadata?.image &&
+              !walrusBlobIdToString(shirt.walrus_blob_id_image) && (
+                <p className="text-neutral-500 text-sm mb-4">Drop name placeholder</p>
+              )}
             <dl className="space-y-2 text-sm">
               <div className="flex justify-between">
                 <dt className="text-neutral-500">Serial</dt>

@@ -1,9 +1,9 @@
 /**
  * Calls mint_shirts to create N shirts and prints ALL created Shirt objectIds and serials in JSON.
- * Output is easy to copy into backend DB as seed data.
+ * drop has all drop details (name, company_name, event_name, total_supply); no need to pass again.
  *
  * Requires: PRIVATE_KEY, RPC_URL, PACKAGE_ID, ADMIN_CAP_OBJECT_ID, DROP_OBJECT_ID
- * Optional: MINT_COUNT (default 1), WALRUS_BLOB_ID (hex, no 0x)
+ * Optional: MINT_COUNT (default 1), WALRUS_BLOB_ID_IMAGE (hex, no 0x), WALRUS_BLOB_ID_METADATA (hex, no 0x)
  */
 
 import "dotenv/config";
@@ -11,8 +11,8 @@ import { getFullnodeUrl, SuiClient } from "@mysten/sui/client";
 import { Transaction } from "@mysten/sui/transactions";
 import { loadKeypair } from "./keypair.js";
 
-function walrusBlobBytes(): number[] {
-  const raw = process.env.WALRUS_BLOB_ID ?? "";
+function blobIdToBytes(envKey: string): number[] {
+  const raw = process.env[envKey] ?? "";
   const hex = raw.startsWith("0x") ? raw.slice(2) : raw;
   if (!hex) return [];
   const match = hex.match(/.{1,2}/g);
@@ -34,7 +34,8 @@ async function main() {
   const rpcUrl = process.env.RPC_URL || getFullnodeUrl("testnet");
   const keypair = loadKeypair();
   const client = new SuiClient({ url: rpcUrl });
-  const walrusBlobId = walrusBlobBytes();
+  const walrusBlobIdImage = blobIdToBytes("WALRUS_BLOB_ID_IMAGE");
+  const walrusBlobIdMetadata = blobIdToBytes("WALRUS_BLOB_ID_METADATA");
 
   console.log("[mint-shirts] Calling mint_shirts for", mintCount, "shirt(s)...");
   const tx = new Transaction();
@@ -44,7 +45,8 @@ async function main() {
       tx.object(adminCapId),
       tx.object(dropObjectId),
       tx.pure.u64(mintCount),
-      tx.pure.vector("u8", walrusBlobId),
+      tx.pure.vector("u8", walrusBlobIdImage),
+      tx.pure.vector("u8", walrusBlobIdMetadata),
     ],
   });
 

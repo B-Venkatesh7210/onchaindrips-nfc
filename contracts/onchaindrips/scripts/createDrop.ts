@@ -1,23 +1,15 @@
 /**
  * Calls create_drop and prints the Drop objectId for .env and backend seed.
+ * No Walrus blob for the drop.
  *
  * Requires: PRIVATE_KEY, RPC_URL, PACKAGE_ID, ADMIN_CAP_OBJECT_ID
- * Optional: DROP_NAME, DROP_TOTAL_SUPPLY, WALRUS_BLOB_ID (hex, no 0x)
+ * Optional: DROP_NAME, COMPANY_NAME, EVENT_NAME, DROP_TOTAL_SUPPLY
  */
 
 import "dotenv/config";
 import { getFullnodeUrl, SuiClient } from "@mysten/sui/client";
 import { Transaction } from "@mysten/sui/transactions";
 import { loadKeypair } from "./keypair.js";
-
-function walrusBlobBytes(): number[] {
-  const raw = process.env.WALRUS_BLOB_ID ?? "";
-  const hex = raw.startsWith("0x") ? raw.slice(2) : raw;
-  if (!hex) return [];
-  const match = hex.match(/.{1,2}/g);
-  if (!match) return [];
-  return match.map((b) => parseInt(b, 16));
-}
 
 async function main() {
   const packageId = process.env.PACKAGE_ID;
@@ -30,8 +22,9 @@ async function main() {
   const client = new SuiClient({ url: rpcUrl });
 
   const dropName = process.env.DROP_NAME ?? "My Drop";
+  const companyName = process.env.COMPANY_NAME ?? "";
+  const eventName = process.env.EVENT_NAME ?? "";
   const totalSupply = Number(process.env.DROP_TOTAL_SUPPLY ?? "100");
-  const walrusBlobId = walrusBlobBytes();
 
   if (Number.isNaN(totalSupply) || totalSupply < 1) throw new Error("DROP_TOTAL_SUPPLY must be a positive number.");
 
@@ -42,8 +35,9 @@ async function main() {
     arguments: [
       tx.object(adminCapId),
       tx.pure.string(dropName),
+      tx.pure.string(companyName),
+      tx.pure.string(eventName),
       tx.pure.u64(totalSupply),
-      tx.pure.vector("u8", walrusBlobId),
       tx.object.clock(),
     ],
   });

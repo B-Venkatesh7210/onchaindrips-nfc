@@ -45,7 +45,8 @@ export function createShirtRouter(client: SuiClientType) {
       const isMinted = Boolean(fields.is_minted);
       const mintedAtMs = typeof fields.minted_at_ms === "string" ? Number(fields.minted_at_ms) : fields.minted_at_ms;
       const dropId = fields.drop_id;
-      const walrusBlobId = fields.walrus_blob_id; // vector<u8> may come as array or base64
+      const walrusBlobIdImage = fields.walrus_blob_id_image;
+      const walrusBlobIdMetadata = fields.walrus_blob_id_metadata;
 
       let ownerAddress: string | null = null;
       if (owner && typeof owner === "object" && "AddressOwner" in owner) {
@@ -60,7 +61,8 @@ export function createShirtRouter(client: SuiClientType) {
         serial: Number.isNaN(serial) ? null : serial,
         drop_id: dropId ?? null,
         minted_at_ms: typeof mintedAtMs === "number" ? mintedAtMs : typeof mintedAtMs === "string" ? Number(mintedAtMs) : null,
-        walrus_blob_id: Array.isArray(walrusBlobId) ? walrusBlobId : walrusBlobId ?? null,
+        walrus_blob_id_image: Array.isArray(walrusBlobIdImage) ? walrusBlobIdImage : walrusBlobIdImage ?? null,
+        walrus_blob_id_metadata: Array.isArray(walrusBlobIdMetadata) ? walrusBlobIdMetadata : walrusBlobIdMetadata ?? null,
         owner: ownerAddress ?? null,
       });
     } catch (err) {

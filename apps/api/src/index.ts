@@ -11,8 +11,10 @@ import express, { type Request, type Response } from "express";
 import rateLimit from "express-rate-limit";
 import { SuiClient } from "@mysten/sui/client";
 import { config } from "./config.js";
+import { claimHandler } from "./routes/claim.js";
 import { createShirtRouter } from "./routes/shirt.js";
 import { sponsorHandler } from "./routes/sponsor.js";
+import { walrusUploadHandler, walrusFetchHandler } from "./routes/walrus.js";
 
 const app = express();
 const client = new SuiClient({ url: config.rpcUrl });
@@ -40,6 +42,9 @@ app.get("/health", (_req: Request, res: Response) => {
 app.get("/shirt/:objectId", createShirtRouter(client));
 
 app.post("/sponsor", sponsorHandler);
+app.post("/claim", claimHandler);
+app.post("/walrus/upload", walrusUploadHandler);
+app.get("/walrus/:blobId", walrusFetchHandler);
 
 // 404
 app.use((_req: Request, res: Response) => {
