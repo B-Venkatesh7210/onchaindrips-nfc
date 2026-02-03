@@ -18,7 +18,11 @@ export type DropRow = {
   minted_count?: number;
   created_at_ms?: number;
   created_at?: string;
+  description?: string | null;
+  release_date?: string | null;
   offchain_attributes?: Record<string, unknown>;
+  /** Walrus blob ID for the drop's NFT t-shirt image (from first shirt). */
+  image_blob_id?: string | null;
 };
 
 export async function fetchDrops(): Promise<DropRow[]> {
@@ -31,7 +35,14 @@ export async function fetchDrops(): Promise<DropRow[]> {
 /** Admin: create drop (onchain + Supabase). Send X-Admin-Address. */
 export async function adminCreateDrop(
   adminAddress: string,
-  body: { name: string; company_name: string; event_name: string; total_supply: number; description?: string }
+  body: {
+    name: string;
+    company_name: string;
+    event_name: string;
+    total_supply: number;
+    description?: string;
+    release_date?: string;
+  }
 ): Promise<{ dropObjectId: string; digest: string }> {
   const res = await fetch(`${API_URL}/admin/drops`, {
     method: "POST",

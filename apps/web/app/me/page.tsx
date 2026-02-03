@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
-import { getSuiClient } from "@/lib/sui";
+import { getSuiClient, CURRENT_SHIRT_TYPE } from "@/lib/sui";
 import { getStoredAddress, logout } from "@/lib/auth";
 
 type ShirtSummary = {
@@ -33,7 +33,8 @@ export default function MePage() {
     const items: ShirtSummary[] = [];
     for (const obj of page.data) {
       const type = obj.data?.type;
-      if (!type || !type.includes("::onchaindrips::Shirt")) continue;
+      if (!type) continue;
+      if (CURRENT_SHIRT_TYPE ? type.toLowerCase() !== CURRENT_SHIRT_TYPE : !type.includes("::onchaindrips::Shirt")) continue;
       const content = obj.data?.content;
       const fields =
         content && typeof content === "object" && "fields" in content

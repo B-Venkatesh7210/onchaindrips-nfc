@@ -110,15 +110,38 @@ export async function walrusUploadImageHandler(req: Request, res: Response): Pro
 }
 
 /**
+ * Walrus expects blob IDs as URL-safe base64 (u256 → base64).
+ * When we backfill from chain we store hex (blob ID bytes → hex). So if the param is hex, convert to base64url.
+ */
+function blobIdForWalrus(param: string): string {
+  const trimmed = param.trim();
+  const hexMatch = trimmed.match(/^[0-9a-fA-F]+$/);
+  if (hexMatch && trimmed.length % 2 === 0) {
+    try {
+      const bytes = Buffer.from(trimmed, "hex");
+      const base64 = bytes.toString("base64");
+      const base64url = base64.replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+      if (base64url.length > 0) return base64url;
+    } catch {
+      // fall through to use as-is
+    }
+  }
+  return trimmed;
+}
+
+/**
  * GET /walrus/:blobId
  * Fetches blob from Walrus aggregator, returns blob data (JSON parsed if possible).
+ * BlobId may be base64 (from Walrus) or hex (from DB backfill); we try the format Walrus expects.
  */
 export async function walrusFetchHandler(req: Request, res: Response): Promise<void> {
-  const blobId = req.params.blobId;
-  if (!blobId?.trim()) {
+  const blobIdParam = req.params.blobId;
+  if (!blobIdParam?.trim()) {
     res.status(400).json({ error: "blobId is required" });
     return;
   }
+
+  const blobId = blobIdForWalrus(blobIdParam);
 
   try {
     const getRes = await fetch(`${AGGREGATOR}/v1/blobs/${encodeURIComponent(blobId)}`);

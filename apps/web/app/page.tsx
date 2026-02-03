@@ -8,13 +8,31 @@ function DropCard({ drop }: { drop: DropRow }) {
   const minted = Number(drop.minted_count ?? 0);
   const total = Number(drop.total_supply ?? 0);
   const isReleased = total > 0 && minted > 0;
+  const [imageError, setImageError] = useState(false);
+  const imageBlobId = drop.image_blob_id?.trim();
+  const imageSrc = imageBlobId
+    ? `/api/walrus/${encodeURIComponent(imageBlobId)}`
+    : null;
 
   return (
     <Link
       href={`/drops/${encodeURIComponent(drop.object_id)}`}
       className="group block overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-sm transition hover:border-neutral-300 hover:shadow-md"
     >
-      <div className="aspect-square bg-neutral-100" />
+      <div className="relative aspect-square bg-neutral-100">
+        {imageSrc && !imageError ? (
+          <img
+            src={imageSrc}
+            alt={drop.name}
+            className="h-full w-full object-cover"
+            onError={() => setImageError(true)}
+          />
+        ) : (
+          <div className="flex h-full w-full items-center justify-center text-neutral-400 text-sm">
+            {imageSrc ? "Image unavailable" : "No image"}
+          </div>
+        )}
+      </div>
       <div className="p-4">
         <h3 className="font-semibold text-neutral-900 truncate">{drop.name}</h3>
         <p className="text-sm text-neutral-500 truncate">{drop.company_name}</p>

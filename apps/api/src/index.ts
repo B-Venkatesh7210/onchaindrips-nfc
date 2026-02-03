@@ -20,6 +20,7 @@ import {
   listDropsHandler,
   createDropHandler,
   mintShirtsHandler,
+  backfillShirtsHandler,
 } from "./routes/admin.js";
 
 const app = express();
@@ -61,6 +62,7 @@ app.get("/drops", listDropsHandler);
 app.get("/admin/drops", adminMiddleware, listDropsHandler);
 app.post("/admin/drops", adminMiddleware, createDropHandler);
 app.post("/admin/drops/:dropObjectId/mint", adminMiddleware, mintShirtsHandler);
+app.post("/admin/drops/:dropObjectId/backfill-shirts", adminMiddleware, backfillShirtsHandler);
 
 // 404
 app.use((_req: Request, res: Response) => {

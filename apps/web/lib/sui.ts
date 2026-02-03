@@ -10,6 +10,11 @@ import { Transaction } from "@mysten/sui/transactions";
 const RPC_URL = process.env.NEXT_PUBLIC_SUI_RPC_URL ?? getFullnodeUrl("testnet");
 const PACKAGE_ID = process.env.NEXT_PUBLIC_PACKAGE_ID ?? "";
 
+/** Current package ID (lowercase) for filtering owned assets. Only shirts from this package are shown in the dashboard. */
+export const CURRENT_PACKAGE_ID = PACKAGE_ID.toLowerCase().trim();
+/** Full type string for Shirt in the current package. */
+export const CURRENT_SHIRT_TYPE = CURRENT_PACKAGE_ID ? `${CURRENT_PACKAGE_ID}::onchaindrips::Shirt` : "";
+
 export function getSuiClient(): SuiClient {
   return new SuiClient({ url: RPC_URL });
 }

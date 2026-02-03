@@ -70,10 +70,13 @@ export default function DropDetailPage() {
           <span className="rounded-full bg-neutral-100 px-3 py-1 text-sm font-medium text-neutral-700">
             {minted} / {total} minted
           </span>
+          {drop.release_date && (
+            <span className="text-sm text-neutral-500">Release: {drop.release_date}</span>
+          )}
         </div>
-        {drop.offchain_attributes && typeof drop.offchain_attributes === "object" && "description" in drop.offchain_attributes && (
+        {(drop.description ?? (drop.offchain_attributes && typeof drop.offchain_attributes === "object" && "description" in drop.offchain_attributes ? (drop.offchain_attributes as { description?: string }).description : null)) && (
           <p className="mt-4 text-neutral-600 text-sm">
-            {String((drop.offchain_attributes as { description?: string }).description ?? "")}
+            {String(drop.description ?? ((drop.offchain_attributes as { description?: string })?.description ?? ""))}
           </p>
         )}
         <p className="mt-6 text-sm text-neutral-400">

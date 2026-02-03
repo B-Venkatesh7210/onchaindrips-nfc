@@ -46,6 +46,30 @@ function hexToBytes(hex: string): number[] {
   return match.map((b) => parseInt(b, 16));
 }
 
+/** Blob ID string (base64url or hex) to bytes for Move vector<u8>. We store base64url in Supabase; chain stores raw bytes. */
+function blobIdStringToBytes(s: string): number[] {
+  const trimmed = s.trim();
+  if (!trimmed) return [];
+  const hexMatch = trimmed.match(/^[0-9a-fA-F]+$/);
+  if (hexMatch && trimmed.length % 2 === 0 && !trimmed.includes("-") && !trimmed.includes("_")) {
+    return hexToBytes(trimmed);
+  }
+  try {
+    let b64 = trimmed.replace(/-/g, "+").replace(/_/g, "/");
+    const pad = b64.length % 4;
+    if (pad) b64 += "=".repeat(4 - pad);
+    const buf = Buffer.from(b64, "base64");
+    return Array.from(buf);
+  } catch {
+    return [];
+  }
+}
+
+/** Bytes to base64url (no padding). Use when writing to Supabase so we store base64url only. */
+function bytesToBase64url(buf: Buffer): string {
+  return buf.toString("base64").replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+
 /**
  * GET /admin/drops — list drops from Supabase (newest first).
  */
@@ -56,7 +80,7 @@ export async function listDropsHandler(req: Request, res: Response): Promise<voi
     return;
   }
   try {
-    const { data, error } = await supabase
+    const { data: drops, error } = await supabase
       .from("drops")
       .select("*")
       .order("created_at", { ascending: false });
@@ -64,7 +88,29 @@ export async function listDropsHandler(req: Request, res: Response): Promise<voi
       res.status(500).json({ error: "Failed to list drops", details: error.message });
       return;
     }
-    res.json(data ?? []);
+    const list = drops ?? [];
+    if (list.length === 0) {
+      res.json([]);
+      return;
+    }
+    const dropIds = list.map((d: { object_id: string }) => d.object_id);
+    const { data: shirts } = await supabase
+      .from("shirts")
+      .select("drop_object_id, serial, walrus_blob_id_image")
+      .in("drop_object_id", dropIds)
+      .order("serial", { ascending: true });
+    const imageByDrop: Record<string, string> = {};
+    for (const s of shirts ?? []) {
+      const dropId = s.drop_object_id as string;
+      if (!imageByDrop[dropId] && (s.walrus_blob_id_image as string)?.trim()) {
+        imageByDrop[dropId] = (s.walrus_blob_id_image as string).trim();
+      }
+    }
+    const enriched = list.map((d: Record<string, unknown> & { object_id: string }) => ({
+      ...d,
+      image_blob_id: imageByDrop[d.object_id] ?? null,
+    }));
+    res.json(enriched);
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     res.status(500).json({ error: "Failed to list drops", details: message });
@@ -73,7 +119,7 @@ export async function listDropsHandler(req: Request, res: Response): Promise<voi
 
 /**
  * POST /admin/drops — create drop onchain, then insert into Supabase.
- * Body: name, company_name, event_name, total_supply, description? (offchain).
+ * Body: name, company_name, event_name, total_supply, description?, release_date? (YYYY-MM-DD; offchain).
  */
 export async function createDropHandler(req: Request, res: Response): Promise<void> {
   const adminCapId = config.adminCapObjectId;
@@ -88,12 +134,18 @@ export async function createDropHandler(req: Request, res: Response): Promise<vo
     event_name?: string;
     total_supply?: number;
     description?: string;
+    release_date?: string;
   };
   const name = body.name?.trim();
   const company_name = (body.company_name ?? "").trim();
   const event_name = (body.event_name ?? "").trim();
   const total_supply = Number(body.total_supply);
   const description = body.description?.trim();
+  const releaseDateRaw = body.release_date?.trim();
+  const release_date =
+    releaseDateRaw && /^\d{4}-\d{2}-\d{2}$/.test(releaseDateRaw) && !Number.isNaN(Date.parse(releaseDateRaw))
+      ? releaseDateRaw
+      : null;
 
   if (!name) {
     res.status(400).json({ error: "name is required" });
@@ -178,7 +230,9 @@ export async function createDropHandler(req: Request, res: Response): Promise<vo
         next_serial: 0,
         minted_count: 0,
         created_at_ms: Date.now(),
-        offchain_attributes: description ? { description } : {},
+        description: description || null,
+        release_date: release_date,
+        offchain_attributes: {},
       });
       if (error) {
         console.error("Supabase insert drop error:", error);
@@ -207,8 +261,8 @@ export async function createDropHandler(req: Request, res: Response): Promise<vo
 
 /**
  * POST /admin/drops/:dropObjectId/mint — mint shirts onchain, then insert into Supabase.
- * Body: walrusBlobIdImage (hex string), walrusBlobIdMetadata (hex string), count? (default total_supply from drop).
- *       Offchain for shirts: gifUrl?, imageUrls? (array).
+ * Body: walrusBlobIdImage, walrusBlobIdMetadata (base64url from Walrus, or hex); stored in Supabase as-is (use base64url).
+ *       count? (default total_supply from drop). Offchain: gifUrl?, imageUrls? (array).
  */
 export async function mintShirtsHandler(req: Request, res: Response): Promise<void> {
   const adminCapId = config.adminCapObjectId;
@@ -258,8 +312,12 @@ export async function mintShirtsHandler(req: Request, res: Response): Promise<vo
     count = totalSupply;
   }
 
-  const imageBytes = hexToBytes(walrusBlobIdImage);
-  const metadataBytes = hexToBytes(walrusBlobIdMetadata);
+  const imageBytes = blobIdStringToBytes(walrusBlobIdImage);
+  const metadataBytes = blobIdStringToBytes(walrusBlobIdMetadata);
+  if (imageBytes.length === 0 || metadataBytes.length === 0) {
+    res.status(400).json({ error: "walrusBlobIdImage and walrusBlobIdMetadata must be valid base64url or hex" });
+    return;
+  }
 
   try {
     const coins = await client.getCoins({
@@ -354,6 +412,21 @@ export async function mintShirtsHandler(req: Request, res: Response): Promise<vo
     }
     rows.sort((a, b) => a.serial - b.serial);
 
+    // If we couldn't parse serials from chain (e.g. RPC content shape), still build rows so Supabase gets populated
+    if (rows.length === 0 && shirtObjectIds.length > 0) {
+      for (let i = 0; i < shirtObjectIds.length; i++) {
+        rows.push({
+          object_id: shirtObjectIds[i],
+          drop_object_id: normalizedDropId,
+          serial: i,
+          is_minted: false,
+          walrus_blob_id_image: walrusBlobIdImage,
+          walrus_blob_id_metadata: walrusBlobIdMetadata,
+          offchain_attributes: { gifUrl: gifUrl || undefined, imageUrls: imageUrls.length ? imageUrls : undefined },
+        });
+      }
+    }
+
     const supabase = getSupabase();
     if (supabase && rows.length > 0) {
       const { error } = await supabase.from("shirts").insert(
@@ -387,5 +460,121 @@ export async function mintShirtsHandler(req: Request, res: Response): Promise<vo
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     res.status(500).json({ error: "Failed to mint shirts", details: message });
+  }
+}
+
+/**
+ * POST /admin/drops/:dropObjectId/backfill-shirts
+ * Fetches Shirt objects owned by the sponsor for this drop from chain and inserts into Supabase.
+ * Use this when shirts were minted onchain but the shirts table is empty (e.g. after a bug fix).
+ */
+export async function backfillShirtsHandler(req: Request, res: Response): Promise<void> {
+  const dropObjectId = (req.params.dropObjectId ?? "").trim();
+  if (!dropObjectId) {
+    res.status(400).json({ error: "dropObjectId is required" });
+    return;
+  }
+  const normalizedDropId = normalizeSuiAddress(dropObjectId);
+
+  const supabase = getSupabase();
+  if (!supabase) {
+    res.status(503).json({ error: "Supabase not configured" });
+    return;
+  }
+
+  const client = new SuiClient({ url: config.rpcUrl });
+  const keypair = loadSponsorKeypair();
+  const sponsorAddress = keypair.toSuiAddress();
+
+  try {
+    const packageId = config.packageId;
+    const typeFilter = `${packageId}::onchaindrips::Shirt`;
+    const page = await client.getOwnedObjects({
+      owner: sponsorAddress,
+      filter: { StructType: typeFilter },
+      options: { showContent: true, showType: true },
+    });
+
+    type Row = {
+      object_id: string;
+      drop_object_id: string;
+      serial: number;
+      is_minted: boolean;
+      walrus_blob_id_image: string;
+      walrus_blob_id_metadata: string;
+      offchain_attributes: Record<string, unknown>;
+    };
+    const rows: Row[] = [];
+
+    for (const item of page.data) {
+      const objId = item.data?.objectId;
+      if (!objId) continue;
+      const content = item.data?.content;
+      if (content?.dataType !== "moveObject") continue;
+      const fields = (content as { fields?: Record<string, unknown> }).fields as Record<string, unknown> | undefined;
+      if (!fields) continue;
+      const dropId = fields.drop_id as string | undefined;
+      if (dropId && normalizeSuiAddress(dropId) !== normalizedDropId) continue;
+      const serial = typeof fields.serial === "string" ? Number(fields.serial) : Number(fields.serial ?? NaN);
+      const isMinted = Boolean(fields.is_minted);
+      const blobImage = fields.walrus_blob_id_image;
+      const blobMetadata = fields.walrus_blob_id_metadata;
+      const blobImageStr = Array.isArray(blobImage)
+        ? bytesToBase64url(Buffer.from(blobImage as number[]))
+        : typeof blobImage === "string"
+          ? blobImage
+          : "";
+      const blobMetadataStr = Array.isArray(blobMetadata)
+        ? bytesToBase64url(Buffer.from(blobMetadata as number[]))
+        : typeof blobMetadata === "string"
+          ? blobMetadata
+          : "";
+      rows.push({
+        object_id: objId,
+        drop_object_id: normalizedDropId,
+        serial: Number.isNaN(serial) ? rows.length : serial,
+        is_minted: isMinted,
+        walrus_blob_id_image: blobImageStr,
+        walrus_blob_id_metadata: blobMetadataStr,
+        offchain_attributes: {},
+      });
+    }
+
+    if (rows.length === 0) {
+      res.status(200).json({ message: "No shirts found onchain for this drop (or none owned by sponsor)", inserted: 0 });
+      return;
+    }
+
+    const { data: existing } = await supabase.from("shirts").select("object_id").eq("drop_object_id", normalizedDropId);
+    const existingIds = new Set((existing ?? []).map((r: { object_id: string }) => r.object_id));
+    const toInsert = rows.filter((r) => !existingIds.has(r.object_id));
+
+    if (toInsert.length === 0) {
+      res.status(200).json({ message: "All shirts for this drop already in Supabase", inserted: 0 });
+      return;
+    }
+
+    const { error } = await supabase.from("shirts").insert(
+      toInsert.map((r) => ({
+        object_id: r.object_id,
+        drop_object_id: r.drop_object_id,
+        serial: r.serial,
+        is_minted: r.is_minted,
+        walrus_blob_id_image: r.walrus_blob_id_image,
+        walrus_blob_id_metadata: r.walrus_blob_id_metadata,
+        offchain_attributes: r.offchain_attributes,
+      }))
+    );
+
+    if (error) {
+      console.error("Supabase backfill shirts error:", error);
+      res.status(500).json({ error: "Backfill insert failed", details: error.message });
+      return;
+    }
+
+    res.status(200).json({ message: "Backfill complete", inserted: toInsert.length, shirtObjectIds: toInsert.map((r) => r.object_id) });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    res.status(500).json({ error: "Backfill failed", details: message });
   }
 }
