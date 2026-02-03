@@ -1,7 +1,6 @@
 /**
- * Walrus blob routes: upload JSON metadata, fetch blob by ID.
+ * Walrus blob routes: upload JSON metadata, upload image (multer), fetch blob by ID.
  * Uses Walrus HTTP API (publisher for upload, aggregator for read).
- * For on-chain certification and WAL-paid storage, use @mysten/walrus SDK (writeBlob/readBlob) with a signer.
  */
 
 import type { Request, Response } from "express";
@@ -9,6 +8,14 @@ import { config } from "../config.js";
 
 const PUBLISHER = config.walrusPublisherUrl;
 const AGGREGATOR = config.walrusAggregatorUrl;
+
+/** Map common mime types to Walrus-friendly Content-Type */
+function getContentType(mimetype: string): string {
+  if (mimetype === "image/png" || mimetype === "image/jpeg" || mimetype === "image/webp" || mimetype === "image/gif") {
+    return mimetype;
+  }
+  return "application/octet-stream";
+}
 
 /**
  * POST /walrus/upload
@@ -55,6 +62,50 @@ export async function walrusUploadHandler(req: Request, res: Response): Promise<
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     res.status(500).json({ error: "Failed to upload to Walrus", details: message });
+  }
+}
+
+/**
+ * POST /walrus/upload-image
+ * Multipart form field: "image" (file). Uploads raw bytes to Walrus, returns blobId.
+ * Use multer before this handler: multer.single('image'), limit e.g. 5MB.
+ */
+export async function walrusUploadImageHandler(req: Request, res: Response): Promise<void> {
+  const file = (req as Request & { file?: Express.Multer.File }).file;
+  if (!file?.buffer) {
+    res.status(400).json({ error: "No image file provided; use multipart field 'image'" });
+    return;
+  }
+
+  const contentType = getContentType(file.mimetype || "application/octet-stream");
+
+  try {
+    const putRes = await fetch(`${PUBLISHER}/v1/blobs?epochs=3`, {
+      method: "PUT",
+      headers: { "Content-Type": contentType },
+      body: file.buffer,
+    });
+
+    if (!putRes.ok) {
+      const errText = await putRes.text();
+      res.status(putRes.status).json({ error: "Walrus image upload failed", details: errText });
+      return;
+    }
+
+    const data = (await putRes.json()) as {
+      newlyCreated?: { blobObject?: { blobId?: string } };
+      alreadyCertified?: { blobId?: string };
+    };
+    const blobId =
+      data.newlyCreated?.blobObject?.blobId ?? data.alreadyCertified?.blobId ?? null;
+    if (!blobId) {
+      res.status(500).json({ error: "Walrus response missing blobId" });
+      return;
+    }
+    res.json({ blobId });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    res.status(500).json({ error: "Failed to upload image to Walrus", details: message });
   }
 }
 

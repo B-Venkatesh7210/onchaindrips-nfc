@@ -4,6 +4,97 @@
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
 
+/** Admin wallet address; admin routes require X-Admin-Address matching this. */
+export const ADMIN_ADDRESS = "0x024b62b65c206e255b02b5fcf770634dcf0a4cac20dcca93f591a5253960365d";
+
+export type DropRow = {
+  id?: string;
+  object_id: string;
+  name: string;
+  company_name: string;
+  event_name: string;
+  total_supply: number;
+  next_serial?: number;
+  minted_count?: number;
+  created_at_ms?: number;
+  created_at?: string;
+  offchain_attributes?: Record<string, unknown>;
+};
+
+export async function fetchDrops(): Promise<DropRow[]> {
+  const res = await fetch(`${API_URL}/drops`);
+  if (!res.ok) return [];
+  const data = await res.json();
+  return Array.isArray(data) ? data : [];
+}
+
+/** Admin: create drop (onchain + Supabase). Send X-Admin-Address. */
+export async function adminCreateDrop(
+  adminAddress: string,
+  body: { name: string; company_name: string; event_name: string; total_supply: number; description?: string }
+): Promise<{ dropObjectId: string; digest: string }> {
+  const res = await fetch(`${API_URL}/admin/drops`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "X-Admin-Address": adminAddress },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: res.statusText }));
+    throw new Error((err as { error?: string }).error ?? "Failed to create drop");
+  }
+  return res.json();
+}
+
+/** Admin: mint shirts (onchain + Supabase). Send X-Admin-Address. */
+export async function adminMintShirts(
+  adminAddress: string,
+  dropObjectId: string,
+  body: {
+    walrusBlobIdImage: string;
+    walrusBlobIdMetadata: string;
+    count?: number;
+    gifUrl?: string;
+    imageUrls?: string[];
+  }
+): Promise<{ dropObjectId: string; digest: string; count: number; shirtObjectIds: string[] }> {
+  const res = await fetch(`${API_URL}/admin/drops/${encodeURIComponent(dropObjectId)}/mint`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "X-Admin-Address": adminAddress },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: res.statusText }));
+    throw new Error((err as { error?: string }).error ?? "Failed to mint shirts");
+  }
+  return res.json();
+}
+
+/** Upload image to Walrus (multipart field "image"). Returns blobId. */
+export async function uploadImageToWalrus(file: File): Promise<{ blobId: string }> {
+  const form = new FormData();
+  form.append("image", file);
+  const res = await fetch(`${API_URL}/walrus/upload-image`, { method: "POST", body: form });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: res.statusText }));
+    throw new Error((err as { error?: string }).error ?? "Failed to upload image");
+  }
+  return res.json();
+}
+
+/** Upload JSON metadata to Walrus. Returns blobId. */
+export async function uploadMetadataToWalrus(metadata: Record<string, unknown>): Promise<{ blobId: string }> {
+  const res = await fetch(`${API_URL}/walrus/upload`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(metadata),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: res.statusText }));
+    throw new Error((err as { error?: string }).error ?? "Failed to upload metadata");
+  }
+  return res.json();
+}
+
 export type ShirtResponse = {
   objectId: string;
   is_minted: boolean;
