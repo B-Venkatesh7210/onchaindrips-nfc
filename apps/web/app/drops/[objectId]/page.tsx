@@ -80,7 +80,7 @@ export default function DropDetailPage() {
           </p>
         )}
         <p className="mt-6 text-sm text-neutral-400">
-          Shirt pages: use a shirt object ID from this drop to view and claim at <code className="rounded bg-neutral-100 px-1">/s/[objectId]</code>.
+          Shirt pages: view and claim at <code className="rounded bg-neutral-100 px-1">/{drop.object_id}/[shirtObjectId]</code> (NFC URL format).
         </p>
       </div>
     </div>

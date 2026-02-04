@@ -133,8 +133,8 @@ apps/web/
 │   ├── auth/
 │   │   └── callback/
 │   │       └── page.tsx       # OAuth callback handler
-│   ├── s/[objectId]/
-│   │   └── page.tsx           # Shirt page (uses zkLogin)
+│   ├── [dropId]/[shirtObjectId]/
+│   │   └── page.tsx           # Shirt page / NFC URL (uses zkLogin)
 │   └── me/
 │       └── page.tsx           # User's shirts (uses zkLogin)
 ├── ZKLOGIN_SETUP.md           # Setup guide

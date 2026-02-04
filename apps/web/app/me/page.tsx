@@ -7,6 +7,7 @@ import { getStoredAddress, logout } from "@/lib/auth";
 
 type ShirtSummary = {
   objectId: string;
+  dropId: string;
   type: string;
   serial?: number;
   isMinted?: boolean;
@@ -26,34 +27,46 @@ export default function MePage() {
 
   const loadOwnedShirts = useCallback(async (owner: string) => {
     const client = getSuiClient();
-    const page = await client.getOwnedObjects({
-      owner,
-      options: { showContent: true, showType: true },
-    });
     const items: ShirtSummary[] = [];
-    for (const obj of page.data) {
-      const type = obj.data?.type;
-      if (!type) continue;
-      if (CURRENT_SHIRT_TYPE ? type.toLowerCase() !== CURRENT_SHIRT_TYPE : !type.includes("::onchaindrips::Shirt")) continue;
-      const content = obj.data?.content;
-      const fields =
-        content && typeof content === "object" && "fields" in content
-          ? (content as { fields?: Record<string, unknown> }).fields
-          : undefined;
-      const serial =
-        fields?.serial != null
-          ? typeof fields.serial === "string"
-            ? Number(fields.serial)
-            : Number(fields.serial)
-          : undefined;
-      const isMinted = Boolean(fields?.is_minted);
-      items.push({
-        objectId: obj.data?.objectId ?? "",
-        type,
-        serial: Number.isNaN(serial) ? undefined : serial,
-        isMinted,
+    let cursor: string | undefined;
+    do {
+      const page = await client.getOwnedObjects({
+        owner,
+        cursor,
+        limit: 50,
+        options: { showContent: true, showType: true },
       });
-    }
+      const shirtTypeLower = CURRENT_SHIRT_TYPE?.toLowerCase() ?? "";
+      for (const obj of page.data) {
+        const type = obj.data?.type;
+        if (!type) continue;
+        const typeLower = type.toLowerCase();
+        const isCurrentPackageShirt = shirtTypeLower ? typeLower === shirtTypeLower : typeLower.includes("::onchaindrips::shirt");
+        if (!isCurrentPackageShirt) continue;
+        const content = obj.data?.content;
+        const fields =
+          content && typeof content === "object" && "fields" in content
+            ? (content as { fields?: Record<string, unknown> }).fields
+            : undefined;
+        const serial =
+          fields?.serial != null
+            ? typeof fields.serial === "string"
+              ? Number(fields.serial)
+              : Number(fields.serial)
+            : undefined;
+        const isMinted = Boolean(fields?.is_minted);
+        const dropId = typeof fields?.drop_id === "string" ? fields.drop_id : "";
+        if (!dropId) continue;
+        items.push({
+          objectId: obj.data?.objectId ?? "",
+          dropId,
+          type,
+          serial: Number.isNaN(serial) ? undefined : serial,
+          isMinted,
+        });
+      }
+      cursor = page.hasNextPage ? page.nextCursor : undefined;
+    } while (cursor);
     setShirts(items);
   }, []);
 
@@ -121,7 +134,7 @@ export default function MePage() {
             {shirts.map((s) => (
               <li key={s.objectId}>
                 <a
-                  href={`/s/${s.objectId}`}
+                  href={`/${s.dropId}/${s.objectId}`}
                   className="block bg-white rounded-lg border border-neutral-200 p-4 shadow-sm hover:border-neutral-300"
                 >
                   <span className="font-medium text-neutral-800">Shirt #{s.serial ?? "?"}</span>

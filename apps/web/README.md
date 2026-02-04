@@ -15,7 +15,7 @@ Copy `.env.example` to `.env.local` and set:
 | Path | Description |
 |------|-------------|
 | `/` | Home; link to My Shirts |
-| `/s/[objectId]` | Shirt page: fetch from API; if unminted show Login + Mint; if minted show NFT view |
+| `/{dropId}/{shirtObjectId}` | Shirt page (NFC URL): fetch from API; if unminted show Login + Mint; if minted show NFT view |
 | `/me` | My Shirts: list owned Shirt objects (Sui RPC by owner address) |
 
 ## Auth (stub)

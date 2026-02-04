@@ -89,7 +89,7 @@ This will install:
    pnpm dev
    ```
 
-3. Navigate to a shirt page (e.g., `http://localhost:3000/s/0x...`)
+3. Navigate to a shirt page (e.g., `http://localhost:3000/{dropId}/{shirtObjectId}`)
 
 4. Click **"Login with Google (zkLogin)"**
 

@@ -1,5 +1,5 @@
 /**
- * POST /sponsor — validate tx (claim_and_transfer, shirt in allowlist), attach sponsor gas, sign, return bytes + sponsor signature.
+ * POST /sponsor — validate tx (claim_and_transfer, shirt claimable in DB), attach sponsor gas, sign, return bytes + sponsor signature.
  */
 
 import type { Request, Response } from "express";
@@ -8,8 +8,8 @@ import { SuiClient } from "@mysten/sui/client";
 import { parseSerializedSignature } from "@mysten/sui/cryptography";
 import { Transaction } from "@mysten/sui/transactions";
 import { normalizeSuiAddress } from "@mysten/sui/utils";
-import { isAllowedShirt } from "../allowlist.js";
 import { config } from "../config.js";
+import { getSupabase, isShirtClaimable } from "../supabase.js";
 import { loadSponsorKeypair } from "../keypair.js";
 
 const PACKAGE_ID = config.packageId;
@@ -26,7 +26,7 @@ function getObjectIdFromInput(inputs: unknown[], arg: { Input?: number; [k: stri
 }
 
 /** Check if the transaction kind is a single MoveCall to our claim_and_transfer and return the Shirt object ID. */
-function validateClaimAndTransferAndGetShirtId(
+function getShirtIdFromClaimTx(
   commands: { $kind?: string; MoveCall?: { package: string; module: string; function: string; arguments: unknown[] } }[],
   inputs: unknown[],
 ): { ok: true; shirtObjectId: string } | { ok: false; error: string } {
@@ -47,7 +47,6 @@ function validateClaimAndTransferAndGetShirtId(
     return { ok: false, error: "Transaction must call claim_and_transfer on our package" };
   }
 
-  // First argument is the Shirt object (mut shirt: Shirt).
   const args = mc.arguments ?? [];
   const shirtArg = args[0];
   if (!shirtArg || typeof shirtArg !== "object") {
@@ -57,10 +56,6 @@ function validateClaimAndTransferAndGetShirtId(
   const shirtObjectId = getObjectIdFromInput(inputs, shirtArg as { Input?: number });
   if (!shirtObjectId) {
     return { ok: false, error: "Could not resolve Shirt object ID from transaction" };
-  }
-
-  if (!isAllowedShirt(shirtObjectId)) {
-    return { ok: false, error: "Shirt objectId is not in the allowlist" };
   }
 
   return { ok: true, shirtObjectId };
@@ -119,13 +114,26 @@ export async function sponsorHandler(req: Request, res: Response): Promise<void>
   const data = tx.getData();
   const commands = (data as { commands?: unknown[] }).commands ?? [];
   const inputs = (data as { inputs?: unknown[] }).inputs ?? [];
-  const validation = validateClaimAndTransferAndGetShirtId(
+  const validation = getShirtIdFromClaimTx(
     commands as { MoveCall?: { package: string; module: string; function: string; arguments: unknown[] } }[],
     inputs,
   );
 
   if (!validation.ok) {
     res.status(400).json({ error: validation.error });
+    return;
+  }
+
+  const supabase = getSupabase();
+  if (!supabase) {
+    res.status(503).json({ error: "Sponsor service unavailable (Supabase not configured)" });
+    return;
+  }
+  const claimable = await isShirtClaimable(validation.shirtObjectId);
+  if (!claimable) {
+    res.status(400).json({
+      error: "Shirt is not claimable (not in database or already minted)",
+    });
     return;
   }
 

@@ -85,6 +85,8 @@ export default function AdminCreateDropPage() {
   const [mintImageUrls, setMintImageUrls] = useState("");
   const [mintSubmitting, setMintSubmitting] = useState(false);
   const [mintError, setMintError] = useState<string | null>(null);
+  /** After successful mint: shirt object IDs for NFC URL download. */
+  const [mintedShirtIds, setMintedShirtIds] = useState<string[] | null>(null);
 
   const handleImageChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -191,18 +193,19 @@ export default function AdminCreateDropPage() {
     }
     setMintSubmitting(true);
     setMintError(null);
+    setMintedShirtIds(null);
     try {
       const imageUrls = mintImageUrls
         .split(/[\n,]/)
         .map((u) => u.trim())
         .filter(Boolean);
-      await adminMintShirts(address, createdDropId, {
+      const res = await adminMintShirts(address, createdDropId, {
         walrusBlobIdImage: mintImageBlobId.trim(),
         walrusBlobIdMetadata: mintMetadataBlobId.trim(),
         gifUrl: mintGifUrl.trim() || undefined,
         imageUrls: imageUrls.length ? imageUrls : undefined,
       });
-      router.push("/");
+      setMintedShirtIds(res.shirtObjectIds ?? []);
     } catch (e) {
       setMintError(e instanceof Error ? e.message : "Mint failed");
     } finally {
@@ -215,8 +218,20 @@ export default function AdminCreateDropPage() {
     mintMetadataBlobId,
     mintGifUrl,
     mintImageUrls,
-    router,
   ]);
+
+  const downloadNfcUrls = useCallback(() => {
+    if (!createdDropId || !mintedShirtIds?.length) return;
+    const base = typeof window !== "undefined" ? window.location.origin : "http://localhost:3000";
+    const lines = mintedShirtIds.map((id) => `${base}/${createdDropId}/${id}`);
+    const blob = new Blob([lines.join("\n")], { type: "text/plain;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `nfc-urls-drop-${createdDropId.slice(0, 10)}-${Date.now()}.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }, [createdDropId, mintedShirtIds]);
 
   if (!address) {
     return (
@@ -547,6 +562,29 @@ export default function AdminCreateDropPage() {
           {mintSubmitting ? "Minting…" : "Mint shirts onchain + Supabase"}
         </button>
         {mintError && <p className="mt-2 text-sm text-red-600">{mintError}</p>}
+        {mintedShirtIds && mintedShirtIds.length > 0 && (
+          <div className="mt-6 rounded-lg border border-emerald-200 bg-emerald-50 p-4">
+            <p className="font-medium text-emerald-800">Minting succeeded</p>
+            <p className="mt-1 text-sm text-emerald-700">
+              {mintedShirtIds.length} shirt(s) minted. Download a file with one URL per shirt to use in NFC tags.
+            </p>
+            <div className="mt-4 flex flex-wrap items-center gap-3">
+              <button
+                type="button"
+                onClick={downloadNfcUrls}
+                className="rounded-lg bg-emerald-700 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-600"
+              >
+                Download NFC URLs (.txt)
+              </button>
+              <Link
+                href="/"
+                className="rounded-lg border border-neutral-300 bg-white px-4 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-50"
+              >
+                Go to Home
+              </Link>
+            </div>
+          </div>
+        )}
       </section>
     </div>
   );

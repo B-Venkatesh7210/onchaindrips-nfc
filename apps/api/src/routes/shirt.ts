@@ -1,11 +1,13 @@
 /**
  * GET /shirt/:objectId — fetch Shirt object from Sui RPC and return fields + owner.
+ * If Supabase is configured and shirt is minted, includes claim_tx_digest from claims table.
  */
 
 import type { Request, Response } from "express";
 import { SuiClient } from "@mysten/sui/client";
 import { normalizeSuiAddress } from "@mysten/sui/utils";
 import type { SuiClient as SuiClientType } from "@mysten/sui/client";
+import { getSupabase } from "../supabase.js";
 
 export function createShirtRouter(client: SuiClientType) {
   return async function shirtHandler(req: Request, res: Response): Promise<void> {
@@ -55,6 +57,23 @@ export function createShirtRouter(client: SuiClientType) {
         ownerAddress = (owner as { ObjectOwner: string }).ObjectOwner;
       }
 
+      let claimTxDigest: string | null = null;
+      try {
+        const supabase = getSupabase();
+        if (supabase && isMinted) {
+          const { data: claim } = await supabase
+            .from("claims")
+            .select("tx_digest")
+            .eq("shirt_object_id", normalizedId)
+            .order("claimed_at", { ascending: false })
+            .limit(1)
+            .maybeSingle();
+          claimTxDigest = claim?.tx_digest ?? null;
+        }
+      } catch {
+        // ignore
+      }
+
       res.json({
         objectId: normalizedId,
         is_minted: isMinted,
@@ -64,6 +83,7 @@ export function createShirtRouter(client: SuiClientType) {
         walrus_blob_id_image: Array.isArray(walrusBlobIdImage) ? walrusBlobIdImage : walrusBlobIdImage ?? null,
         walrus_blob_id_metadata: Array.isArray(walrusBlobIdMetadata) ? walrusBlobIdMetadata : walrusBlobIdMetadata ?? null,
         owner: ownerAddress ?? null,
+        claim_tx_digest: claimTxDigest,
       });
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);

@@ -115,6 +115,8 @@ export type ShirtResponse = {
   walrus_blob_id_image: number[] | string | null;
   walrus_blob_id_metadata: number[] | string | null;
   owner: string | null;
+  /** Mint/claim transaction digest (from claims table); for explorer link. */
+  claim_tx_digest?: string | null;
 };
 
 export type SponsorResponse = {
@@ -168,17 +170,21 @@ export async function claimShirt(shirtObjectId: string, recipientAddress: string
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({ error: res.statusText }));
-    throw new Error((err as { error?: string }).error ?? "Claim failed");
+    const body = err as { error?: string; details?: string };
+    const message = body.details ? `${body.error ?? "Claim failed"}: ${body.details}` : (body.error ?? "Claim failed");
+    throw new Error(message);
   }
   return res.json() as Promise<ClaimResponse>;
 }
 
-/** Walrus blob ID from chain (vector<u8>) may be number[] or string; normalize to string. */
+/** Walrus blob ID from chain (vector<u8>) may be number[] or string; normalize to string for /api/walrus. */
 export function walrusBlobIdToString(walrusBlobId: number[] | string | null): string | null {
   if (walrusBlobId == null) return null;
   if (typeof walrusBlobId === "string") return walrusBlobId.trim() || null;
   if (Array.isArray(walrusBlobId) && walrusBlobId.length > 0) {
-    return new TextDecoder().decode(new Uint8Array(walrusBlobId));
+    return Array.from(walrusBlobId)
+      .map((b) => Number(b).toString(16).padStart(2, "0"))
+      .join("");
   }
   return null;
 }

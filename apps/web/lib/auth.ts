@@ -72,7 +72,7 @@ export function getStoredSigner(): Keypair | null {
  * Start zkLogin OAuth flow
  * Redirects user to Google OAuth
  * @param rpcUrl - Sui RPC URL
- * @param returnTo - Path to redirect to after successful login (e.g. /s/0x123...)
+ * @param returnTo - Path to redirect to after successful login (e.g. /{dropId}/{shirtObjectId})
  */
 export async function loginWithGoogle(rpcUrl: string, returnTo?: string): Promise<void> {
   if (typeof window === "undefined") return;

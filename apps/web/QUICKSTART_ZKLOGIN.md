@@ -61,8 +61,8 @@ pnpm dev
 
 ## Step 5: Test zkLogin (1 minute)
 
-1. Open http://localhost:3000/s/[shirt-object-id]
-   - Replace `[shirt-object-id]` with an actual shirt object ID from your allowlist
+1. Open a shirt URL (e.g. `http://localhost:3000/{dropId}/{shirtObjectId}`)
+   - Use the NFC URL format: drop object ID and shirt object ID from your drop
 
 2. Click **"Login with Google (zkLogin)"**
 

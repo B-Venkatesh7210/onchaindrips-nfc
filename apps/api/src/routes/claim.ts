@@ -8,8 +8,8 @@ import { toBase64 } from "@mysten/bcs";
 import { SuiClient } from "@mysten/sui/client";
 import { Transaction } from "@mysten/sui/transactions";
 import { normalizeSuiAddress } from "@mysten/sui/utils";
-import { isAllowedShirt } from "../allowlist.js";
 import { config } from "../config.js";
+import { getSupabase, isShirtClaimable } from "../supabase.js";
 import { loadSponsorKeypair } from "../keypair.js";
 
 const PACKAGE_ID = config.packageId;
@@ -31,8 +31,24 @@ export async function claimHandler(req: Request, res: Response): Promise<void> {
   const shirtId = normalizeSuiAddress(shirtObjectId);
   const recipient = normalizeSuiAddress(recipientAddress);
 
-  if (!isAllowedShirt(shirtId)) {
-    res.status(400).json({ error: "Shirt objectId is not in the allowlist" });
+  let claimable: boolean;
+  try {
+    const supabase = getSupabase();
+    if (!supabase) {
+      res.status(503).json({ error: "Claim service unavailable (Supabase not configured)" });
+      return;
+    }
+    claimable = await isShirtClaimable(shirtId);
+  } catch (e) {
+    const message = e instanceof Error ? e.message : String(e);
+    console.error("[claim] Supabase check failed:", message);
+    res.status(503).json({ error: "Claim check failed", details: message });
+    return;
+  }
+  if (!claimable) {
+    res.status(400).json({
+      error: "Shirt is not claimable (not in database or already minted)",
+    });
     return;
   }
 
@@ -41,6 +57,19 @@ export async function claimHandler(req: Request, res: Response): Promise<void> {
   const sponsorAddress = sponsorKeypair.toSuiAddress();
 
   try {
+    const shirtObj = await client.getObject({ id: shirtId, options: { showContent: true } });
+    const content = shirtObj.data?.content;
+    if (content?.dataType !== "moveObject") {
+      res.status(400).json({ error: "Shirt object not found or invalid" });
+      return;
+    }
+    const fields = (content as { fields?: Record<string, unknown> }).fields;
+    const dropId = typeof fields?.drop_id === "string" ? normalizeSuiAddress(fields.drop_id) : null;
+    if (!dropId) {
+      res.status(400).json({ error: "Could not read drop_id from shirt" });
+      return;
+    }
+
     const coins = await client.getCoins({
       owner: sponsorAddress,
       coinType: "0x2::sui::SUI",
@@ -57,6 +86,7 @@ export async function claimHandler(req: Request, res: Response): Promise<void> {
       target: `${PACKAGE_ID}::onchaindrips::claim_and_transfer`,
       arguments: [
         tx.object(shirtId),
+        tx.object(dropId),
         tx.pure.address(recipient),
         tx.object("0x6"), // Clock
       ],
@@ -86,7 +116,27 @@ export async function claimHandler(req: Request, res: Response): Promise<void> {
       return;
     }
 
-    res.json({ digest: result.digest });
+    const digest = result.digest;
+    const supabase = getSupabase();
+    if (supabase && digest) {
+      await supabase.from("claims").insert({
+        shirt_object_id: shirtId,
+        drop_object_id: dropId,
+        recipient_address: recipient,
+        tx_digest: digest,
+      });
+      await supabase
+        .from("shirts")
+        .update({
+          is_minted: true,
+          minted_at_ms: Date.now(),
+          current_owner_address: recipient,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("object_id", shirtId);
+    }
+
+    res.json({ digest });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     res.status(500).json({ error: "Failed to claim", details: message });
