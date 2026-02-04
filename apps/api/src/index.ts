@@ -12,7 +12,11 @@ import { SuiClient } from "@mysten/sui/client";
 import { config } from "./config.js";
 import { uploadSingleImage } from "./multer.js";
 import { claimHandler } from "./routes/claim.js";
-import { createShirtRouter } from "./routes/shirt.js";
+import {
+  createShirtRouter,
+  getShirtProfileHandler,
+  upsertShirtProfileHandler,
+} from "./routes/shirt.js";
 import { sponsorHandler } from "./routes/sponsor.js";
 import { walrusUploadHandler, walrusFetchHandler, walrusUploadImageHandler } from "./routes/walrus.js";
 import {
@@ -47,6 +51,8 @@ app.get("/health", (_req: Request, res: Response) => {
 });
 
 app.get("/shirt/:objectId", createShirtRouter(client));
+app.get("/shirt/:objectId/profile", getShirtProfileHandler);
+app.post("/shirt/:objectId/profile", upsertShirtProfileHandler);
 
 app.post("/sponsor", sponsorHandler);
 app.post("/claim", claimHandler);

@@ -119,6 +119,12 @@ export type ShirtResponse = {
   claim_tx_digest?: string | null;
 };
 
+export type ShirtProfile = {
+  ens_name?: string | null;
+  ens_locked?: boolean;
+  fields?: Record<string, unknown>;
+};
+
 export type SponsorResponse = {
   sponsoredTxBytesBase64: string;
   sponsorSignatureBase64: string;
@@ -131,6 +137,35 @@ export async function fetchShirt(objectId: string): Promise<ShirtResponse> {
     throw new Error((err as { error?: string }).error ?? "Failed to fetch shirt");
   }
   return res.json() as Promise<ShirtResponse>;
+}
+
+export async function fetchShirtProfile(objectId: string): Promise<ShirtProfile | null> {
+  const res = await fetch(`${API_URL}/shirt/${encodeURIComponent(objectId)}/profile`);
+  if (res.status === 404) return null;
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: res.statusText }));
+    throw new Error((err as { error?: string }).error ?? "Failed to fetch shirt profile");
+  }
+  const body = (await res.json()) as { profile?: ShirtProfile | null };
+  return body.profile ?? null;
+}
+
+export async function saveShirtProfile(
+  objectId: string,
+  ownerAddress: string,
+  profile: ShirtProfile,
+): Promise<ShirtProfile> {
+  const res = await fetch(`${API_URL}/shirt/${encodeURIComponent(objectId)}/profile`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ ownerAddress, profile }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: res.statusText }));
+    throw new Error((err as { error?: string }).error ?? "Failed to save shirt profile");
+  }
+  const body = (await res.json()) as { profile: ShirtProfile };
+  return body.profile;
 }
 
 export async function sponsorTransaction(

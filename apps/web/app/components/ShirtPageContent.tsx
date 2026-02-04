@@ -1,16 +1,21 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   fetchShirt,
   fetchDrops,
   claimShirt,
   fetchWalrusBlob,
   walrusBlobIdToString,
+  fetchShirtProfile,
+  saveShirtProfile,
+  uploadImageToWalrus,
   type ShirtResponse,
   type DropRow,
+  type ShirtProfile,
 } from "@/lib/api";
+import { connectWalletAndLoadEnsProfile, hasEvmProvider } from "@/lib/ens";
 import { getStoredAddress, loginWithGoogle } from "@/lib/auth";
 
 function formatDate(ms: number | null): string {
@@ -32,7 +37,10 @@ function normalizeAddress(a: string): string {
   return a.toLowerCase().trim();
 }
 
-function isOwner(userAddress: string | null, shirtOwner: string | null): boolean {
+function isOwner(
+  userAddress: string | null,
+  shirtOwner: string | null
+): boolean {
   if (!userAddress || !shirtOwner) return false;
   return normalizeAddress(userAddress) === normalizeAddress(shirtOwner);
 }
@@ -41,7 +49,10 @@ const SUI_EXPLORER_BASE =
   typeof process !== "undefined" && process.env.NEXT_PUBLIC_SUI_EXPLORER_URL
     ? process.env.NEXT_PUBLIC_SUI_EXPLORER_URL
     : "https://suiexplorer.com/txblock";
-const SUI_NETWORK = typeof process !== "undefined" && process.env.NEXT_PUBLIC_SUI_NETWORK ? process.env.NEXT_PUBLIC_SUI_NETWORK : "testnet";
+const SUI_NETWORK =
+  typeof process !== "undefined" && process.env.NEXT_PUBLIC_SUI_NETWORK
+    ? process.env.NEXT_PUBLIC_SUI_NETWORK
+    : "testnet";
 
 function explorerTxUrl(digest: string): string {
   return `${SUI_EXPLORER_BASE}/${digest}?network=${SUI_NETWORK}`;
@@ -53,7 +64,11 @@ type Props = {
   returnToPath: string;
 };
 
-export default function ShirtPageContent({ shirtObjectId, dropId, returnToPath }: Props) {
+export default function ShirtPageContent({
+  shirtObjectId,
+  dropId,
+  returnToPath,
+}: Props) {
   const router = useRouter();
   const objectId = shirtObjectId;
 
@@ -64,8 +79,20 @@ export default function ShirtPageContent({ shirtObjectId, dropId, returnToPath }
   const [userAddress, setUserAddress] = useState<string | null>(null);
   const [minting, setMinting] = useState(false);
   const [mintTxDigest, setMintTxDigest] = useState<string | null>(null);
-  const [walrusMetadata, setWalrusMetadata] = useState<Record<string, unknown> | null>(null);
+  const [walrusMetadata, setWalrusMetadata] = useState<Record<
+    string,
+    unknown
+  > | null>(null);
   const [imageError, setImageError] = useState(false);
+  const [profile, setProfile] = useState<ShirtProfile | null>(null);
+  const [profileLoading, setProfileLoading] = useState(false);
+  const [profileError, setProfileError] = useState<string | null>(null);
+  const [profileEditing, setProfileEditing] = useState(false);
+  const [profileDraft, setProfileDraft] = useState<Record<string, string>>({});
+  const [ensLoading, setEnsLoading] = useState(false);
+  const [ensError, setEnsError] = useState<string | null>(null);
+  const [avatarUploading, setAvatarUploading] = useState(false);
+  const avatarInputRef = useRef<HTMLInputElement>(null);
 
   const loadShirt = useCallback(async () => {
     if (!objectId) return;
@@ -92,7 +119,8 @@ export default function ShirtPageContent({ shirtObjectId, dropId, returnToPath }
     fetchDrops().then((drops) => {
       if (cancelled) return;
       const normalized = dropId.toLowerCase().trim();
-      const found = drops.find((d) => d.object_id?.toLowerCase() === normalized) ?? null;
+      const found =
+        drops.find((d) => d.object_id?.toLowerCase() === normalized) ?? null;
       setDrop(found);
     });
     return () => {
@@ -120,9 +148,44 @@ export default function ShirtPageContent({ shirtObjectId, dropId, returnToPath }
     setUserAddress(getStoredAddress());
   }, []);
 
+  // Load profile from Supabase (if any) once we know the shirt is minted.
+  useEffect(() => {
+    if (!shirt?.is_minted) return;
+    let cancelled = false;
+    setProfileLoading(true);
+    setProfileError(null);
+    fetchShirtProfile(objectId)
+      .then((p) => {
+        if (cancelled) return;
+        setProfile(p);
+        if (p?.fields && typeof p.fields === "object") {
+          const flat: Record<string, string> = {};
+          for (const [k, v] of Object.entries(p.fields)) {
+            if (v == null) continue;
+            flat[k] = String(v);
+          }
+          setProfileDraft(flat);
+        }
+      })
+      .catch((e) => {
+        if (!cancelled)
+          setProfileError(
+            e instanceof Error ? e.message : "Failed to load profile"
+          );
+      })
+      .finally(() => {
+        if (!cancelled) setProfileLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [objectId, shirt?.is_minted]);
+
   const handleLogin = useCallback(async () => {
     try {
-      const rpcUrl = process.env.NEXT_PUBLIC_SUI_RPC_URL || "https://fullnode.testnet.sui.io";
+      const rpcUrl =
+        process.env.NEXT_PUBLIC_SUI_RPC_URL ||
+        "https://fullnode.testnet.sui.io";
       await loginWithGoogle(rpcUrl, returnToPath);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Login failed");
@@ -143,6 +206,143 @@ export default function ShirtPageContent({ shirtObjectId, dropId, returnToPath }
       setMinting(false);
     }
   }, [shirt, userAddress, objectId, loadShirt]);
+
+  const handleStartProfileEdit = useCallback(() => {
+    if (profile?.fields && Object.keys(profile.fields).length > 0) {
+      const flat: Record<string, string> = {};
+      for (const [k, v] of Object.entries(profile.fields)) {
+        if (v == null) continue;
+        flat[k] = String(v);
+      }
+      setProfileDraft(flat);
+    } else if (Object.keys(profileDraft).length === 0) {
+      setProfileDraft({
+        name: "",
+        avatar: "",
+        company: "",
+        role: "",
+        telegram: "",
+        twitter: "",
+        email: "",
+        website: "",
+        github: "",
+        description: "",
+      });
+    }
+    setProfileEditing(true);
+  }, [profile, profileDraft]);
+
+  const handleProfileFieldChange = useCallback((key: string, value: string) => {
+    setProfileDraft((prev) => ({ ...prev, [key]: value }));
+  }, []);
+
+  const handleAvatarUpload = useCallback(
+    async (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (!file || !file.type.startsWith("image/")) return;
+      e.target.value = "";
+      setProfileError(null);
+      setAvatarUploading(true);
+      try {
+        const { blobId } = await uploadImageToWalrus(file);
+        const origin =
+          typeof window !== "undefined" ? window.location.origin : "";
+        const avatarUrl = `${origin}/api/walrus/${encodeURIComponent(blobId)}`;
+        setProfileDraft((prev) => ({ ...prev, avatar: avatarUrl }));
+      } catch (err) {
+        setProfileError(
+          err instanceof Error ? err.message : "Failed to upload photo"
+        );
+      } finally {
+        setAvatarUploading(false);
+      }
+    },
+    []
+  );
+
+  const handleSaveProfile = useCallback(async () => {
+    if (!shirt?.owner || !userAddress || !isOwner(userAddress, shirt.owner))
+      return;
+    setProfileError(null);
+    setProfileLoading(true);
+    try {
+      const nextProfile: ShirtProfile = {
+        ...(profile ?? {}),
+        fields: { ...(profile?.fields ?? {}), ...profileDraft },
+      };
+      // Once user saves via the UI, treat the profile as editable even if it was
+      // originally populated from ENS.
+      if (nextProfile.ens_locked) {
+        nextProfile.ens_locked = false;
+      }
+      const saved = await saveShirtProfile(objectId, userAddress, nextProfile);
+      setProfile(saved);
+      setProfileEditing(false);
+    } catch (e) {
+      setProfileError(
+        e instanceof Error ? e.message : "Failed to save details"
+      );
+    } finally {
+      setProfileLoading(false);
+    }
+  }, [shirt?.owner, userAddress, profile, profileDraft, objectId]);
+
+  const handleConnectEns = useCallback(async () => {
+    if (!shirt?.owner || !userAddress || !isOwner(userAddress, shirt.owner))
+      return;
+    setEnsError(null);
+    setProfileError(null);
+    setEnsLoading(true);
+    try {
+      const { ensName, records } = await connectWalletAndLoadEnsProfile();
+
+      const fieldsFromEns: Record<string, string> = {};
+      console.log("ens details", fieldsFromEns, records);
+      // Map common ENS records to our friendly keys
+      if (ensName) fieldsFromEns.name = ensName;
+      if (records["avatar"]) fieldsFromEns.avatar = records["avatar"];
+      if (records["description"])
+        fieldsFromEns.description = records["description"];
+      if (records["url"]) fieldsFromEns.website = records["url"];
+      if (records["com.twitter"])
+        fieldsFromEns.twitter = records["com.twitter"];
+      if (records["com.telegram"])
+        fieldsFromEns.telegram = records["com.telegram"];
+      if (records["com.github"]) fieldsFromEns.github = records["com.github"];
+      if (records["email"]) fieldsFromEns.email = records["email"];
+      // Any ENS key not in the list above becomes an extra field (so nothing is dropped)
+      const mappedKeys = [
+        "description",
+        "url",
+        "com.twitter",
+        "com.telegram",
+        "com.github",
+        "email",
+        "avatar",
+      ];
+      for (const [key, value] of Object.entries(records)) {
+        if (!value) continue;
+        if (mappedKeys.includes(key)) continue;
+        fieldsFromEns[`ens:${key}`] = value;
+      }
+
+      // Merge ENS-derived fields into the draft so user can review / add more before saving.
+      setProfileDraft((prev) => ({ ...prev, ...fieldsFromEns }));
+      setProfile((prev) => ({
+        ...(prev ?? {}),
+        ens_name: ensName,
+        ens_locked: false,
+        fields: { ...(prev?.fields ?? {}), ...fieldsFromEns },
+      }));
+      setProfileEditing(true);
+    } catch (e) {
+      setEnsError(
+        e instanceof Error ? e.message : "Failed to load ENS records"
+      );
+    } finally {
+      setEnsLoading(false);
+    }
+  }, [shirt?.owner, userAddress, objectId]);
 
   if (loading) {
     return (
@@ -172,13 +372,25 @@ export default function ShirtPageContent({ shirtObjectId, dropId, returnToPath }
   }
 
   const imageBlobId =
-    walrusBlobIdToString(shirt.walrus_blob_id_image) ?? drop?.image_blob_id?.trim() ?? null;
-  const imageSrc = imageBlobId ? `/api/walrus/${encodeURIComponent(imageBlobId)}` : null;
+    walrusBlobIdToString(shirt.walrus_blob_id_image) ??
+    drop?.image_blob_id?.trim() ??
+    null;
+  const imageSrc = imageBlobId
+    ? `/api/walrus/${encodeURIComponent(imageBlobId)}`
+    : null;
   const totalSupply = drop ? Number(drop.total_supply ?? 0) : 0;
   const mintedCount = drop ? Number(drop.minted_count ?? 0) : 0;
   const remaining = Math.max(0, totalSupply - mintedCount);
-  const dropName = drop?.name ?? (walrusMetadata && typeof walrusMetadata.name === "string" ? walrusMetadata.name : "Drop");
-  const description = drop?.description?.trim() || (walrusMetadata && typeof walrusMetadata.description === "string" ? walrusMetadata.description : null);
+  const dropName =
+    drop?.name ??
+    (walrusMetadata && typeof walrusMetadata.name === "string"
+      ? walrusMetadata.name
+      : "Drop");
+  const description =
+    drop?.description?.trim() ||
+    (walrusMetadata && typeof walrusMetadata.description === "string"
+      ? walrusMetadata.description
+      : null);
 
   const viewUnminted = !shirt.is_minted;
   const viewOwner = shirt.is_minted && isOwner(userAddress, shirt.owner);
@@ -206,25 +418,35 @@ export default function ShirtPageContent({ shirtObjectId, dropId, returnToPath }
           </div>
 
           <div className="p-5 sm:p-6 space-y-4">
-            <h1 className="text-xl font-bold text-neutral-900 leading-tight">{dropName}</h1>
+            <h1 className="text-xl font-bold text-neutral-900 leading-tight">
+              {dropName}
+            </h1>
             {(drop?.company_name || drop?.event_name) && (
               <p className="text-neutral-600 text-sm">
-                {[drop.company_name, drop.event_name].filter(Boolean).join(" · ")}
+                {[drop.company_name, drop.event_name]
+                  .filter(Boolean)
+                  .join(" · ")}
               </p>
             )}
             <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
-              <span className="font-medium text-neutral-800">Serial #{shirt.serial ?? "—"}</span>
+              <span className="font-medium text-neutral-800">
+                Serial #{shirt.serial ?? "—"}
+              </span>
               {totalSupply > 0 && (
                 <span className="text-neutral-500">
                   {mintedCount} of {totalSupply} minted
                   {remaining > 0 && (
-                    <span className="ml-1 font-medium text-emerald-600">· {remaining} left</span>
+                    <span className="ml-1 font-medium text-emerald-600">
+                      · {remaining} left
+                    </span>
                   )}
                 </span>
               )}
             </div>
             {description && (
-              <p className="text-neutral-600 text-sm leading-relaxed">{description}</p>
+              <p className="text-neutral-600 text-sm leading-relaxed">
+                {description}
+              </p>
             )}
 
             {/* View 1: Unminted — show Login + Mint */}
@@ -276,20 +498,326 @@ export default function ShirtPageContent({ shirtObjectId, dropId, returnToPath }
 
             {/* Owner line — both owner and non-owner */}
             <p className="text-sm text-neutral-600 text-center">
-              Owner: <span className="font-mono" title={shirt.owner ?? undefined}>{shirt.owner ? shortenAddress(shirt.owner) : "—"}</span>
+              Owner:{" "}
+              <span className="font-mono" title={shirt.owner ?? undefined}>
+                {shirt.owner ? shortenAddress(shirt.owner) : "—"}
+              </span>
             </p>
 
-            {/* Add Details — owner view only */}
+            {/* Owner / profile section */}
             {viewOwner && (
-              <div className="flex justify-center">
-                <button
-                  type="button"
-                  className="rounded-xl border border-neutral-300 bg-white px-4 py-2.5 text-sm font-medium text-neutral-700 hover:bg-neutral-50 transition-colors"
-                >
-                  Add Details about yourself
-                </button>
+              <div className="rounded-2xl border border-neutral-200 bg-white p-4 sm:p-5">
+                <div className="mb-3 flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <h2 className="text-sm font-semibold text-neutral-900">
+                      About you
+                    </h2>
+                    {profile?.ens_locked && profile.ens_name && (
+                      <span className="rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-medium text-blue-700">
+                        ENS-locked ({profile.ens_name})
+                      </span>
+                    )}
+                  </div>
+                  {!profileEditing && (
+                    <button
+                      type="button"
+                      onClick={handleStartProfileEdit}
+                      className="text-xs font-medium text-neutral-600 hover:text-neutral-900"
+                    >
+                      {profile ? "Edit" : "Add details"}
+                    </button>
+                  )}
+                </div>
+                {ensError ? (
+                  <p className="mb-1 text-xs text-red-600">{ensError}</p>
+                ) : null}
+                {profileError ? (
+                  <p className="mb-2 text-xs text-red-600">{profileError}</p>
+                ) : null}
+                {profileLoading && !profileEditing ? (
+                  <p className="text-xs text-neutral-500">Loading details…</p>
+                ) : null}
+
+                {hasEvmProvider() && profileEditing && (
+                  <div className="mb-3 flex items-center justify-between gap-2">
+                    <button
+                      type="button"
+                      onClick={handleConnectEns}
+                      disabled={ensLoading}
+                      className="rounded-lg border border-neutral-300 px-3 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {ensLoading
+                        ? "Connecting ENS…"
+                        : "Connect Ethereum wallet & load ENS"}
+                    </button>
+                  </div>
+                )}
+
+                {profileEditing ? (
+                  <div className="space-y-3">
+                    {/* Avatar: tap to upload or change */}
+                    <div>
+                      <label className="mb-1 block text-xs font-medium text-neutral-600">
+                        Profile picture
+                      </label>
+                      <input
+                        ref={avatarInputRef}
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={handleAvatarUpload}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => avatarInputRef.current?.click()}
+                        disabled={avatarUploading}
+                        className="h-16 w-16 shrink-0 overflow-hidden rounded-full bg-neutral-100 flex items-center justify-center cursor-pointer hover:ring-2 hover:ring-neutral-300 focus:outline-none focus:ring-2 focus:ring-neutral-400 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {avatarUploading ? (
+                          <span className="text-neutral-500 text-xs">
+                            Uploading…
+                          </span>
+                        ) : profileDraft.avatar?.trim() ? (
+                          <img
+                            src={profileDraft.avatar}
+                            alt=""
+                            className="h-full w-full object-cover"
+                            onError={(e) => {
+                              (e.target as HTMLImageElement).style.display =
+                                "none";
+                            }}
+                          />
+                        ) : (
+                          <span className="text-neutral-400 text-xs">
+                            Tap to upload
+                          </span>
+                        )}
+                      </button>
+                    </div>
+                    {[
+                      ["name", "Name"],
+                      ["company", "Company"],
+                      ["role", "Role"],
+                      ["telegram", "Telegram"],
+                      ["twitter", "Twitter"],
+                      ["email", "Email"],
+                      ["website", "Website"],
+                      ["github", "GitHub"],
+                    ].map(([key, label]) => (
+                      <div key={key}>
+                        <label className="mb-1 block text-xs font-medium text-neutral-600">
+                          {label}
+                        </label>
+                        <input
+                          type="text"
+                          value={profileDraft[key] ?? ""}
+                          onChange={(e) =>
+                            handleProfileFieldChange(key, e.target.value)
+                          }
+                          className="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm text-neutral-900 placeholder:text-neutral-400 focus:border-neutral-400 focus:outline-none"
+                        />
+                      </div>
+                    ))}
+                    <div>
+                      <label className="mb-1 block text-xs font-medium text-neutral-600">
+                        Description
+                      </label>
+                      <textarea
+                        value={profileDraft.description ?? ""}
+                        onChange={(e) =>
+                          handleProfileFieldChange(
+                            "description",
+                            e.target.value
+                          )
+                        }
+                        rows={3}
+                        className="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm text-neutral-900 placeholder:text-neutral-400 focus:border-neutral-400 focus:outline-none"
+                      />
+                    </div>
+                    {/* Extra fields from ENS (e.g. ens:com.discord) or custom */}
+                    {(() => {
+                      const standardKeys = new Set([
+                        "name",
+                        "avatar",
+                        "company",
+                        "role",
+                        "telegram",
+                        "twitter",
+                        "email",
+                        "website",
+                        "github",
+                        "description",
+                      ]);
+                      const extras = Object.entries(profileDraft).filter(
+                        ([k]) => !standardKeys.has(k)
+                      );
+                      if (extras.length === 0) return null;
+                      return (
+                        <>
+                          <p className="text-xs font-medium text-neutral-600 pt-1">
+                            Other details
+                          </p>
+                          {extras.map(([key, value]) => (
+                            <div key={key}>
+                              <label className="mb-1 block text-xs font-medium text-neutral-600">
+                                {key.startsWith("ens:") ? key.slice(4) : key}
+                              </label>
+                              <input
+                                type="text"
+                                value={value ?? ""}
+                                onChange={(e) =>
+                                  handleProfileFieldChange(key, e.target.value)
+                                }
+                                className="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm text-neutral-900 placeholder:text-neutral-400 focus:border-neutral-400 focus:outline-none"
+                              />
+                            </div>
+                          ))}
+                        </>
+                      );
+                    })()}
+                    <div className="flex justify-end gap-2 pt-1">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setProfileEditing(false);
+                          setProfileError(null);
+                        }}
+                        className="rounded-lg border border-neutral-200 px-3 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-50"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleSaveProfile}
+                        disabled={profileLoading}
+                        className="rounded-lg bg-neutral-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-neutral-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {profileLoading ? "Saving…" : "Save"}
+                      </button>
+                    </div>
+                  </div>
+                ) : profile &&
+                  profile.fields &&
+                  Object.keys(profile.fields).length > 0 ? (
+                  <>
+                    {typeof profile.fields.avatar === "string" &&
+                      profile.fields.avatar.trim() !== "" && (
+                        <div className="mb-3 flex justify-center">
+                          <img
+                            src={profile.fields.avatar}
+                            alt=""
+                            className="h-20 w-20 rounded-full object-cover bg-neutral-100"
+                            onError={(e) => {
+                              (e.target as HTMLImageElement).style.display =
+                                "none";
+                            }}
+                          />
+                        </div>
+                      )}
+                    <dl className="space-y-1.5 text-xs text-neutral-700">
+                      {Object.entries(profile.fields).map(([key, value]) => {
+                        if (key === "avatar" || value == null || value === "")
+                          return null;
+                        const label =
+                          key.charAt(0).toUpperCase() +
+                          key.slice(1).replace(/^Ens:/, "");
+                        return (
+                          <div key={key} className="flex gap-2">
+                            <dt className="w-20 shrink-0 text-neutral-500">
+                              {label}
+                            </dt>
+                            <dd className="flex-1 break-words">
+                              {key === "website" &&
+                              typeof value === "string" ? (
+                                <a
+                                  href={
+                                    value.startsWith("http")
+                                      ? value
+                                      : `https://${value}`
+                                  }
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="underline hover:text-neutral-900"
+                                >
+                                  {value}
+                                </a>
+                              ) : (
+                                String(value)
+                              )}
+                            </dd>
+                          </div>
+                        );
+                      })}
+                    </dl>
+                  </>
+                ) : (
+                  <p className="text-xs text-neutral-500">
+                    No details added yet.
+                  </p>
+                )}
               </div>
             )}
+
+            {/* Non-owner view of details */}
+            {viewNonOwner &&
+              profile &&
+              profile.fields &&
+              Object.keys(profile.fields).length > 0 && (
+                <div className="rounded-2xl border border-neutral-200 bg-white p-4 sm:p-5">
+                  <h2 className="mb-3 text-sm font-semibold text-neutral-900">
+                    About the owner
+                  </h2>
+                  {typeof profile.fields.avatar === "string" &&
+                    profile.fields.avatar.trim() !== "" && (
+                      <div className="mb-3 flex justify-center">
+                        <img
+                          src={profile.fields.avatar as string}
+                          alt=""
+                          className="h-20 w-20 rounded-full object-cover bg-neutral-100"
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).style.display =
+                              "none";
+                          }}
+                        />
+                      </div>
+                    )}
+                  <dl className="space-y-1.5 text-xs text-neutral-700">
+                    {Object.entries(profile.fields).map(([key, value]) => {
+                      if (key === "avatar" || value == null || value === "")
+                        return null;
+                      const label =
+                        key.charAt(0).toUpperCase() +
+                        key.slice(1).replace(/^Ens:/, "");
+                      const strVal = String(value);
+                      return (
+                        <div key={key} className="flex gap-2">
+                          <dt className="w-20 shrink-0 text-neutral-500">
+                            {label}
+                          </dt>
+                          <dd className="flex-1 break-words">
+                            {key === "website" && typeof value === "string" ? (
+                              <a
+                                href={
+                                  value.startsWith("http")
+                                    ? value
+                                    : `https://${value}`
+                                }
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="underline hover:text-neutral-900"
+                              >
+                                {value}
+                              </a>
+                            ) : (
+                              strVal
+                            )}
+                          </dd>
+                        </div>
+                      );
+                    })}
+                  </dl>
+                </div>
+              )}
           </div>
         )}
       </div>
