@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   ADMIN_ADDRESS,
   adminCreateDrop,
@@ -115,6 +115,7 @@ export default function AdminCreateDropPage() {
     try {
       const { blobId } = await uploadImageToWalrus(imageFile);
       setImageBlobId(blobId);
+      setMintImageBlobId(blobId);
     } catch (e) {
       setImageError(e instanceof Error ? e.message : "Upload failed");
     } finally {
@@ -137,6 +138,7 @@ export default function AdminCreateDropPage() {
       };
       const { blobId } = await uploadMetadataToWalrus(metadata);
       setMetadataBlobId(blobId);
+      setMintMetadataBlobId(blobId);
     } catch (e) {
       setMetadataError(e instanceof Error ? e.message : "Upload failed");
     } finally {
@@ -149,6 +151,21 @@ export default function AdminCreateDropPage() {
     metaEventName,
     metaReleaseDate,
     metaTotalSupply,
+  ]);
+
+  // Sync metadata fields → drop details so filling metadata autofills drop section
+  useEffect(() => {
+    setDropName(metaDropName);
+    setDropCompanyName(metaCompanyName);
+    setDropEventName(metaEventName);
+    setDropTotalSupply(metaTotalSupply);
+    setDropReleaseDate(metaReleaseDate);
+  }, [
+    metaDropName,
+    metaCompanyName,
+    metaEventName,
+    metaTotalSupply,
+    metaReleaseDate,
   ]);
 
   const createDrop = useCallback(async () => {
@@ -382,10 +399,9 @@ export default function AdminCreateDropPage() {
               Release Date
             </label>
             <input
-              type="text"
+              type="date"
               value={metaReleaseDate}
               onChange={(e) => setMetaReleaseDate(e.target.value)}
-              placeholder="e.g. 2025-02-01"
               className="mt-1 w-full rounded border border-neutral-200 px-3 py-2 text-sm"
             />
           </div>
