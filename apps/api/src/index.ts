@@ -25,6 +25,7 @@ import {
   createDropHandler,
   mintShirtsHandler,
   backfillShirtsHandler,
+  resolveClaimTokenHandler,
 } from "./routes/admin.js";
 
 const app = express();
@@ -63,6 +64,8 @@ app.get("/walrus/:blobId", walrusFetchHandler);
 
 // Public: list drops (from Supabase)
 app.get("/drops", listDropsHandler);
+// Public: resolve claim URL token to shirtObjectId (for /{dropId}/{token} NFC URLs). Token via query ?token= or path.
+app.get("/drops/:dropId/resolve", resolveClaimTokenHandler);
 
 // Admin-only (X-Admin-Address header must match ADMIN_ADDRESS)
 app.get("/admin/drops", adminMiddleware, listDropsHandler);

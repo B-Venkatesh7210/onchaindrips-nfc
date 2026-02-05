@@ -8,6 +8,7 @@ import { toBase64 } from "@mysten/bcs";
 import { SuiClient } from "@mysten/sui/client";
 import { Transaction } from "@mysten/sui/transactions";
 import { normalizeSuiAddress } from "@mysten/sui/utils";
+import { insertClaimUrlTokens, lookupClaimUrlToken } from "../claimUrlTokens.js";
 import { config } from "../config.js";
 import { loadSponsorKeypair } from "../keypair.js";
 import { getSupabase } from "../supabase.js";
@@ -106,10 +107,47 @@ export async function listDropsHandler(req: Request, res: Response): Promise<voi
         imageByDrop[dropId] = (s.walrus_blob_id_image as string).trim();
       }
     }
-    const enriched = list.map((d: Record<string, unknown> & { object_id: string }) => ({
-      ...d,
-      image_blob_id: imageByDrop[d.object_id] ?? null,
-    }));
+    // Enrich minted_count from chain (source of truth); Supabase may be stale after claims.
+    const mintedCountByDropId: Record<string, number> = {};
+    try {
+      const suiClient = new SuiClient({ url: config.rpcUrl });
+      const normalizedDropIds = dropIds.map((id: string) => normalizeSuiAddress(id));
+      const objects = await suiClient.multiGetObjects({
+        ids: normalizedDropIds,
+        options: { showContent: true },
+      });
+      for (let i = 0; i < objects.length; i++) {
+        const obj = objects[i];
+        const content = obj.data?.content;
+        if (content?.dataType !== "moveObject") continue;
+        const type = String((content as { type?: string }).type ?? "");
+        if (!type.includes("::onchaindrips::Drop")) continue;
+        const fields = (content as { fields?: Record<string, unknown> }).fields;
+        const raw = fields?.minted_count;
+        const count =
+          typeof raw === "number"
+            ? raw
+            : typeof raw === "string"
+              ? Number(raw)
+              : Number(raw);
+        if (!Number.isNaN(count)) {
+          mintedCountByDropId[normalizedDropIds[i]] = count;
+        }
+      }
+    } catch (_e) {
+      // RPC failed; keep DB minted_count (may be 0)
+    }
+    const enriched = list.map((d: Record<string, unknown> & { object_id: string }) => {
+      const dropIdNorm = normalizeSuiAddress(d.object_id);
+      const chainMinted = mintedCountByDropId[dropIdNorm];
+      const minted_count =
+        chainMinted !== undefined ? chainMinted : Number(d.minted_count ?? 0);
+      return {
+        ...d,
+        image_blob_id: imageByDrop[d.object_id] ?? null,
+        minted_count,
+      };
+    });
     res.json(enriched);
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
@@ -451,16 +489,62 @@ export async function mintShirtsHandler(req: Request, res: Response): Promise<vo
       }
     }
 
+    let claimTokens: { shirtObjectId: string; token: string }[] | undefined;
+    if (supabase && shirtObjectIds.length > 0) {
+      try {
+        claimTokens = await insertClaimUrlTokens(supabase, normalizedDropId, shirtObjectIds);
+      } catch (e) {
+        console.error("Claim URL tokens insert error:", e);
+        res.status(500).json({
+          error: "Shirts minted but claim URL tokens failed",
+          details: e instanceof Error ? e.message : String(e),
+          shirtObjectIds,
+        });
+        return;
+      }
+    }
+
     res.status(201).json({
       dropObjectId: normalizedDropId,
       digest: result.digest,
       count: rows.length,
       shirtObjectIds,
+      claimTokens,
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     res.status(500).json({ error: "Failed to mint shirts", details: message });
   }
+}
+
+/**
+ * GET /drops/:dropId/resolve?token=... — look up short claim token and return shirtObjectId (public).
+ * Token is ≤14 chars, stored in claim_url_tokens (Supabase). NFC URL format: /{dropId}/{token}.
+ */
+export async function resolveClaimTokenHandler(req: Request, res: Response): Promise<void> {
+  const dropId = (req.params.dropId ?? "").trim();
+  const token =
+    (typeof req.query.token === "string" ? req.query.token : req.params.token ?? "").trim();
+  if (!dropId || !token) {
+    res.status(400).json({ error: "dropId and token are required" });
+    return;
+  }
+  const supabase = getSupabase();
+  if (!supabase) {
+    res.status(503).json({ error: "Claim URL resolution not available" });
+    return;
+  }
+  const row = await lookupClaimUrlToken(supabase, token);
+  if (!row) {
+    res.status(404).json({ error: "Invalid or expired token" });
+    return;
+  }
+  const normalizedDropId = normalizeSuiAddress(dropId);
+  if (normalizeSuiAddress(row.drop_object_id) !== normalizedDropId) {
+    res.status(404).json({ error: "Token does not match drop" });
+    return;
+  }
+  res.json({ shirtObjectId: row.shirt_object_id });
 }
 
 /**

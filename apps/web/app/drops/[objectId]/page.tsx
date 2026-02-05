@@ -79,9 +79,6 @@ export default function DropDetailPage() {
             {String(drop.description ?? ((drop.offchain_attributes as { description?: string })?.description ?? ""))}
           </p>
         )}
-        <p className="mt-6 text-sm text-neutral-400">
-          Shirt pages: view and claim at <code className="rounded bg-neutral-100 px-1">/{drop.object_id}/[shirtObjectId]</code> (NFC URL format).
-        </p>
       </div>
     </div>
   );

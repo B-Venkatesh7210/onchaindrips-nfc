@@ -32,6 +32,21 @@ export async function fetchDrops(): Promise<DropRow[]> {
   return Array.isArray(data) ? data : [];
 }
 
+/** Resolve claim URL token to shirt object ID (for /{dropId}/{token} NFC URLs). */
+export async function resolveClaimToken(
+  dropId: string,
+  token: string
+): Promise<{ shirtObjectId: string }> {
+  const url = new URL(`${API_URL}/drops/${encodeURIComponent(dropId)}/resolve`);
+  url.searchParams.set("token", token.trim());
+  const res = await fetch(url.toString());
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: res.statusText }));
+    throw new Error((err as { error?: string }).error ?? "Invalid claim URL");
+  }
+  return res.json();
+}
+
 /** Admin: create drop (onchain + Supabase). Send X-Admin-Address. */
 export async function adminCreateDrop(
   adminAddress: string,
@@ -67,7 +82,13 @@ export async function adminMintShirts(
     gifUrl?: string;
     imageUrls?: string[];
   }
-): Promise<{ dropObjectId: string; digest: string; count: number; shirtObjectIds: string[] }> {
+): Promise<{
+  dropObjectId: string;
+  digest: string;
+  count: number;
+  shirtObjectIds: string[];
+  claimTokens?: { shirtObjectId: string; token: string }[];
+}> {
   const res = await fetch(`${API_URL}/admin/drops/${encodeURIComponent(dropObjectId)}/mint`, {
     method: "POST",
     headers: { "Content-Type": "application/json", "X-Admin-Address": adminAddress },

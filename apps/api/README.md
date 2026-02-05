@@ -9,6 +9,7 @@ Copy `.env.example` to `.env` and set:
 - **RPC_URL** — Sui RPC (default: testnet)
 - **PACKAGE_ID** — Deployed Move package ID
 - **SPONSOR_PRIVATE_KEY** — Bech32 or 64-char hex; used only on backend for gas
+- **SUPABASE_URL** and **SUPABASE_SERVICE_ROLE_KEY** — Required for drops, shirts, claims, and **short NFC claim URLs** (tokens ≤14 chars). Run migration `003_claim_url_tokens.sql` so the `claim_url_tokens` table exists; then after each mint the API returns short tokens and the downloadable TXT uses URLs like `https://yoursite.com/{dropId}/{token}`.
 
 ## Allowlist
 

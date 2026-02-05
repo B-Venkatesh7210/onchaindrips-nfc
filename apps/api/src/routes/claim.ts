@@ -134,6 +134,26 @@ export async function claimHandler(req: Request, res: Response): Promise<void> {
           updated_at: new Date().toISOString(),
         })
         .eq("object_id", shirtId);
+      // Sync drop.minted_count from chain so DB stays in sync
+      try {
+        const dropObj = await client.getObject({ id: dropId, options: { showContent: true } });
+        const content = dropObj.data?.content;
+        if (content?.dataType === "moveObject") {
+          const fields = (content as { fields?: Record<string, unknown> }).fields;
+          const raw = fields?.minted_count;
+          const count =
+            typeof raw === "number"
+              ? raw
+              : typeof raw === "string"
+                ? Number(raw)
+                : Number(raw);
+          if (!Number.isNaN(count)) {
+            await supabase.from("drops").update({ minted_count: count }).eq("object_id", dropId);
+          }
+        }
+      } catch {
+        // ignore; list endpoint will still use chain for minted_count
+      }
     }
 
     res.json({ digest });

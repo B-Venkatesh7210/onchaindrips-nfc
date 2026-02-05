@@ -7,7 +7,10 @@ import { fetchDrops, type DropRow } from "@/lib/api";
 function DropCard({ drop }: { drop: DropRow }) {
   const minted = Number(drop.minted_count ?? 0);
   const total = Number(drop.total_supply ?? 0);
-  const isReleased = total > 0 && minted > 0;
+  const today = new Date();
+  const todayStr = today.getFullYear() + "-" + String(today.getMonth() + 1).padStart(2, "0") + "-" + String(today.getDate()).padStart(2, "0");
+  const releaseDatePassed = !drop.release_date?.trim() || (drop.release_date.trim() <= todayStr);
+  const isReleased = total > 0 && minted > 0 && releaseDatePassed;
   const [imageError, setImageError] = useState(false);
   const imageBlobId = drop.image_blob_id?.trim();
   const imageSrc = imageBlobId

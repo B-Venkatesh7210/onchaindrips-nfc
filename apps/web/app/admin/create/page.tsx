@@ -87,6 +87,10 @@ export default function AdminCreateDropPage() {
   const [mintError, setMintError] = useState<string | null>(null);
   /** After successful mint: shirt object IDs for NFC URL download. */
   const [mintedShirtIds, setMintedShirtIds] = useState<string[] | null>(null);
+  /** Claim URL tokens (one per shirt) when API returns them; used for token-based NFC URLs. */
+  const [claimTokens, setClaimTokens] = useState<
+    { shirtObjectId: string; token: string }[] | null
+  >(null);
 
   const handleImageChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -206,6 +210,7 @@ export default function AdminCreateDropPage() {
         imageUrls: imageUrls.length ? imageUrls : undefined,
       });
       setMintedShirtIds(res.shirtObjectIds ?? []);
+      setClaimTokens(res.claimTokens ?? null);
     } catch (e) {
       setMintError(e instanceof Error ? e.message : "Mint failed");
     } finally {
@@ -221,17 +226,31 @@ export default function AdminCreateDropPage() {
   ]);
 
   const downloadNfcUrls = useCallback(() => {
-    if (!createdDropId || !mintedShirtIds?.length) return;
-    const base = typeof window !== "undefined" ? window.location.origin : "http://localhost:3000";
-    const lines = mintedShirtIds.map((id) => `${base}/${createdDropId}/${id}`);
-    const blob = new Blob([lines.join("\n")], { type: "text/plain;charset=utf-8" });
+    if (!createdDropId) return;
+    const base =
+      typeof window !== "undefined"
+        ? window.location.origin
+        : "http://localhost:3000";
+    const lines: string[] =
+      claimTokens && claimTokens.length > 0
+        ? claimTokens.map(
+            ({ token }) => `${base}/${createdDropId}/${token.trim()}`
+          )
+        : (mintedShirtIds ?? []).map((id) => `${base}/${createdDropId}/${id}`);
+    if (lines.length === 0) return;
+    const blob = new Blob([lines.join("\n")], {
+      type: "text/plain;charset=utf-8",
+    });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `nfc-urls-drop-${createdDropId.slice(0, 10)}-${Date.now()}.txt`;
+    a.download = `nfc-urls-drop-${createdDropId.slice(
+      0,
+      10
+    )}-${Date.now()}.txt`;
     a.click();
     URL.revokeObjectURL(url);
-  }, [createdDropId, mintedShirtIds]);
+  }, [createdDropId, mintedShirtIds, claimTokens]);
 
   if (!address) {
     return (
@@ -566,7 +585,8 @@ export default function AdminCreateDropPage() {
           <div className="mt-6 rounded-lg border border-emerald-200 bg-emerald-50 p-4">
             <p className="font-medium text-emerald-800">Minting succeeded</p>
             <p className="mt-1 text-sm text-emerald-700">
-              {mintedShirtIds.length} shirt(s) minted. Download a file with one URL per shirt to use in NFC tags.
+              {mintedShirtIds.length} shirt(s) minted. Download a file with one
+              URL per shirt to use in NFC tags.
             </p>
             <div className="mt-4 flex flex-wrap items-center gap-3">
               <button
