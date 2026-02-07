@@ -204,7 +204,8 @@ export default function AdminCreateDropPage() {
             ? Number(dropReservationSlots || "0")
             : 0,
         bidding_ends_at:
-          dropBiddingEndsAt.trim() && !Number.isNaN(Date.parse(dropBiddingEndsAt))
+          dropBiddingEndsAt.trim() &&
+          !Number.isNaN(Date.parse(dropBiddingEndsAt))
             ? new Date(dropBiddingEndsAt).toISOString()
             : undefined,
         reservation_evm_recipient:
