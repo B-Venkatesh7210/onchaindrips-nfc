@@ -31,6 +31,7 @@ import {
   closeBidsHandler,
   getDropBidsSummaryHandler,
 } from "./routes/admin.js";
+import { uploadCarouselImageHandler } from "./routes/upload.js";
 import { faucetHandler } from "./routes/yellow.js";
 
 const app = express();
@@ -66,6 +67,9 @@ app.post("/claim", claimHandler);
 app.post("/walrus/upload", walrusUploadHandler);
 app.post("/walrus/upload-image", uploadSingleImage, walrusUploadImageHandler);
 app.get("/walrus/:blobId", walrusFetchHandler);
+
+// Admin: upload carousel image to Supabase Storage (returns public URL)
+app.post("/admin/upload-carousel-image", adminMiddleware, uploadSingleImage, uploadCarouselImageHandler);
 
 // Public: list drops (from Supabase)
 app.get("/drops", listDropsHandler);

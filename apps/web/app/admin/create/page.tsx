@@ -7,6 +7,7 @@ import {
   ADMIN_ADDRESS,
   adminCreateDrop,
   adminMintShirts,
+  uploadCarouselImageToSupabase,
   uploadImageToWalrus,
   uploadMetadataToWalrus,
 } from "@/lib/api";
@@ -90,8 +91,11 @@ export default function AdminCreateDropPage() {
   // Section 4: Mint shirts
   const [mintImageBlobId, setMintImageBlobId] = useState("");
   const [mintMetadataBlobId, setMintMetadataBlobId] = useState("");
-  const [mintGifUrl, setMintGifUrl] = useState("");
-  const [mintImageUrls, setMintImageUrls] = useState("");
+  const [mintUploadedImage1File, setMintUploadedImage1File] = useState<File | null>(null);
+  const [mintUploadedImage2File, setMintUploadedImage2File] = useState<File | null>(null);
+  const [mintUploadedImage1Url, setMintUploadedImage1Url] = useState("");
+  const [mintUploadedImage2Url, setMintUploadedImage2Url] = useState("");
+  const [mintUploadedImageUploading, setMintUploadedImageUploading] = useState(false);
   const [mintSubmitting, setMintSubmitting] = useState(false);
   const [mintError, setMintError] = useState<string | null>(null);
   /** After successful mint: shirt object IDs for NFC URL download. */
@@ -233,25 +237,52 @@ export default function AdminCreateDropPage() {
     dropReleaseDate,
   ]);
 
+  const uploadMintImages = useCallback(async (): Promise<[string, string] | null> => {
+    if (!address || !mintUploadedImage1File || !mintUploadedImage2File) return null;
+    setMintUploadedImageUploading(true);
+    setMintError(null);
+    try {
+      const [r1, r2] = await Promise.all([
+        uploadCarouselImageToSupabase(address, mintUploadedImage1File),
+        uploadCarouselImageToSupabase(address, mintUploadedImage2File),
+      ]);
+      setMintUploadedImage1Url(r1.url);
+      setMintUploadedImage2Url(r2.url);
+      return [r1.url, r2.url];
+    } catch (e) {
+      setMintError(e instanceof Error ? e.message : "Supabase upload failed");
+      return null;
+    } finally {
+      setMintUploadedImageUploading(false);
+    }
+  }, [address, mintUploadedImage1File, mintUploadedImage2File]);
+
   const mintShirts = useCallback(async () => {
     if (!address || !createdDropId) return;
     if (!mintImageBlobId.trim() || !mintMetadataBlobId.trim()) {
       setMintError("Image and metadata blob IDs are required");
       return;
     }
+    if (!mintUploadedImage1File || !mintUploadedImage2File) {
+      setMintError("Upload both carousel images (image 1 and image 2)");
+      return;
+    }
     setMintSubmitting(true);
     setMintError(null);
     setMintedShirtIds(null);
     try {
-      const imageUrls = mintImageUrls
-        .split(/[\n,]/)
-        .map((u) => u.trim())
-        .filter(Boolean);
+      let imageUrls: [string, string] =
+        mintUploadedImage1Url && mintUploadedImage2Url
+          ? [mintUploadedImage1Url, mintUploadedImage2Url]
+          : (await uploadMintImages()) ?? (null as unknown as [string, string]);
+      if (!imageUrls) {
+        setMintError("Failed to upload carousel images");
+        return;
+      }
       const res = await adminMintShirts(address, createdDropId, {
         walrusBlobIdImage: mintImageBlobId.trim(),
         walrusBlobIdMetadata: mintMetadataBlobId.trim(),
-        gifUrl: mintGifUrl.trim() || undefined,
-        imageUrls: imageUrls.length ? imageUrls : undefined,
+        imageUrls,
       });
       setMintedShirtIds(res.shirtObjectIds ?? []);
       setClaimTokens(res.claimTokens ?? null);
@@ -265,8 +296,11 @@ export default function AdminCreateDropPage() {
     createdDropId,
     mintImageBlobId,
     mintMetadataBlobId,
-    mintGifUrl,
-    mintImageUrls,
+    mintUploadedImage1File,
+    mintUploadedImage2File,
+    mintUploadedImage1Url,
+    mintUploadedImage2Url,
+    uploadMintImages,
   ]);
 
   const downloadNfcUrls = useCallback(() => {
@@ -712,36 +746,66 @@ export default function AdminCreateDropPage() {
           </div>
           <div>
             <label className="text-sm font-medium text-neutral-600">
-              GIF URL (Supabase offchain)
+              Carousel image 1 (upload to Supabase Storage)
             </label>
-            <input
-              type="text"
-              value={mintGifUrl}
-              onChange={(e) => setMintGifUrl(e.target.value)}
-              placeholder="https://…"
-              className="mt-1 w-full rounded border border-neutral-200 px-3 py-2 text-sm"
-            />
+            <p className="mt-0.5 text-xs text-neutral-500">
+              Fallback when NFT image fails to load; also used in carousel.
+            </p>
+            <div className="mt-1 flex items-center gap-2">
+              <input
+                type="file"
+                accept="image/*"
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  setMintUploadedImage1File(f ?? null);
+                  if (!f) setMintUploadedImage1Url("");
+                }}
+                className="rounded border border-neutral-200 px-2 py-1.5 text-sm"
+              />
+              {mintUploadedImage1Url && (
+                <span className="text-xs text-emerald-600 font-mono truncate max-w-[12rem]">
+                  Uploaded
+                </span>
+              )}
+            </div>
           </div>
           <div>
             <label className="text-sm font-medium text-neutral-600">
-              Image URLs (Supabase offchain, one per line or comma-separated)
+              Carousel image 2 (upload to Supabase Storage)
             </label>
-            <textarea
-              value={mintImageUrls}
-              onChange={(e) => setMintImageUrls(e.target.value)}
-              rows={3}
-              placeholder="https://…"
-              className="mt-1 w-full rounded border border-neutral-200 px-3 py-2 text-sm"
-            />
+            <p className="mt-0.5 text-xs text-neutral-500">
+              Second slide in the image carousel.
+            </p>
+            <div className="mt-1 flex items-center gap-2">
+              <input
+                type="file"
+                accept="image/*"
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  setMintUploadedImage2File(f ?? null);
+                  if (!f) setMintUploadedImage2Url("");
+                }}
+                className="rounded border border-neutral-200 px-2 py-1.5 text-sm"
+              />
+              {mintUploadedImage2Url && (
+                <span className="text-xs text-emerald-600 font-mono truncate max-w-[12rem]">
+                  Uploaded
+                </span>
+              )}
+            </div>
           </div>
         </div>
         <button
           type="button"
           onClick={mintShirts}
-          disabled={!createdDropId || mintSubmitting}
+          disabled={!createdDropId || mintSubmitting || mintUploadedImageUploading}
           className="mt-4 rounded-lg bg-neutral-800 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-700 disabled:opacity-50"
         >
-          {mintSubmitting ? "Minting…" : "Mint shirts onchain + Supabase"}
+          {mintUploadedImageUploading
+            ? "Uploading images…"
+            : mintSubmitting
+              ? "Minting…"
+              : "Mint shirts onchain + Supabase"}
         </button>
         {mintError && <p className="mt-2 text-sm text-red-600">{mintError}</p>}
         {mintedShirtIds && mintedShirtIds.length > 0 && (

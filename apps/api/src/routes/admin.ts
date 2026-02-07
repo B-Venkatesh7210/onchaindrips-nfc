@@ -763,14 +763,14 @@ export async function mintShirtsHandler(req: Request, res: Response): Promise<vo
     walrusBlobIdImage?: string;
     walrusBlobIdMetadata?: string;
     count?: number;
-    gifUrl?: string;
     imageUrls?: string[];
   };
   const walrusBlobIdImage = (body.walrusBlobIdImage ?? "").trim();
   const walrusBlobIdMetadata = (body.walrusBlobIdMetadata ?? "").trim();
   let count = Number(body.count);
-  const gifUrl = body.gifUrl?.trim();
-  const imageUrls = Array.isArray(body.imageUrls) ? body.imageUrls.filter((u) => typeof u === "string") : [];
+  const imageUrls = Array.isArray(body.imageUrls) ? body.imageUrls.filter((u) => typeof u === "string" && u.trim()) : [];
+  const uploadedBlobId1 = imageUrls[0]?.trim() ?? null;
+  const uploadedBlobId2 = imageUrls[1]?.trim() ?? null;
 
   if (!walrusBlobIdImage || !walrusBlobIdMetadata) {
     res.status(400).json({ error: "walrusBlobIdImage and walrusBlobIdMetadata are required" });
@@ -888,7 +888,7 @@ export async function mintShirtsHandler(req: Request, res: Response): Promise<vo
         is_minted: false,
         walrus_blob_id_image: walrusBlobIdImage,
         walrus_blob_id_metadata: walrusBlobIdMetadata,
-        offchain_attributes: { gifUrl: gifUrl || undefined, imageUrls: imageUrls.length ? imageUrls : undefined },
+        offchain_attributes: { imageUrls: imageUrls.length ? imageUrls : undefined },
       });
     }
     rows.sort((a, b) => a.serial - b.serial);
@@ -903,7 +903,7 @@ export async function mintShirtsHandler(req: Request, res: Response): Promise<vo
           is_minted: false,
           walrus_blob_id_image: walrusBlobIdImage,
           walrus_blob_id_metadata: walrusBlobIdMetadata,
-          offchain_attributes: { gifUrl: gifUrl || undefined, imageUrls: imageUrls.length ? imageUrls : undefined },
+          offchain_attributes: { imageUrls: imageUrls.length ? imageUrls : undefined },
         });
       }
     }
@@ -929,6 +929,14 @@ export async function mintShirtsHandler(req: Request, res: Response): Promise<vo
           shirtObjectIds,
         });
         return;
+      }
+      if ((uploadedBlobId1 || uploadedBlobId2) != null) {
+        const updatePayload: Record<string, string | null> = {};
+        if (uploadedBlobId1) updatePayload.uploaded_image_1 = uploadedBlobId1;
+        if (uploadedBlobId2) updatePayload.uploaded_image_2 = uploadedBlobId2;
+        if (Object.keys(updatePayload).length > 0) {
+          await supabase.from("drops").update(updatePayload).eq("object_id", normalizedDropId);
+        }
       }
     }
 

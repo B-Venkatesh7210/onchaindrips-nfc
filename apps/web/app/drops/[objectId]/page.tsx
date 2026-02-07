@@ -35,6 +35,7 @@ import {
   useYellowSandbox,
   type YellowSession,
 } from "@/lib/yellow";
+import { ImageCarousel } from "@/app/components/ImageCarousel";
 
 export default function DropDetailPage() {
   const params = useParams();
@@ -384,10 +385,25 @@ export default function DropDetailPage() {
   ];
   const hasSizeInfo = sizeInfo.some((s) => s.value && s.value > 0);
 
-  const imageBlobId = drop.image_blob_id?.trim();
-  const imageSrc = imageBlobId
-    ? `/api/walrus/${encodeURIComponent(imageBlobId)}`
-    : null;
+  const toImageUrl = (value: string): string => {
+    const v = value.trim();
+    if (/^https?:\/\//i.test(v)) return v;
+    return `/api/walrus/${encodeURIComponent(v)}`;
+  };
+  const dropCarouselSlides = (): import("@/app/components/ImageCarousel").CarouselSlide[] => {
+    const nft = drop.image_blob_id?.trim();
+    const u1 = drop.uploaded_image_1?.trim();
+    const u2 = drop.uploaded_image_2?.trim();
+    const slide1 = nft
+      ? u1
+        ? { primary: toImageUrl(nft), fallback: toImageUrl(u1) }
+        : toImageUrl(nft)
+      : u1
+        ? toImageUrl(u1)
+        : null;
+    const slide2 = u2 ? toImageUrl(u2) : null;
+    return [slide1, slide2].filter(Boolean) as import("@/app/components/ImageCarousel").CarouselSlide[];
+  };
   const btnClass =
     "bg-red-600 hover:bg-red-700 text-white shadow-[0_0_16px_0_rgba(220,38,38,0.6)] hover:shadow-[0_0_32px_4px_rgba(220,38,38,0.8)]";
 
@@ -407,19 +423,14 @@ export default function DropDetailPage() {
           <h1 className="text-2xl font-bold text-white">{drop.name}</h1>
           <p className="mt-1 text-white/80">{drop.event_name}</p>
         </div>
-        {/* NFT image — transparent bg, ~90% of given space */}
+        {/* Image carousel — NFT or 1st uploaded, then 2nd uploaded; auto 5s */}
         <div className="relative aspect-square bg-transparent flex items-center justify-center">
-          {imageSrc ? (
-            <img
-              src={imageSrc}
-              alt={drop.name}
-              className="max-h-[90%] max-w-[90%] w-auto h-auto object-contain"
-            />
-          ) : (
-            <div className="flex h-48 w-full items-center justify-center text-white/40 text-sm">
-              No image
-            </div>
-          )}
+          <ImageCarousel
+            slides={dropCarouselSlides()}
+            alt={drop.name}
+            className="max-h-[90%] max-w-[90%] w-full"
+            imageClassName="max-h-[90%] max-w-[90%] w-auto h-auto object-contain"
+          />
         </div>
         {/* Other details — black bg, red outline left/right/bottom */}
         <div className="bg-black border border-red-600/40 border-t-0 rounded-b-xl px-6 py-4">

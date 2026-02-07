@@ -3,6 +3,28 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { fetchDrops, type DropRow } from "@/lib/api";
+import { ImageCarousel, type CarouselSlide } from "@/app/components/ImageCarousel";
+
+function toImageUrl(value: string): string {
+  const v = value.trim();
+  if (/^https?:\/\//i.test(v)) return v;
+  return `/api/walrus/${encodeURIComponent(v)}`;
+}
+
+function dropCarouselSlides(drop: DropRow): CarouselSlide[] {
+  const nft = drop.image_blob_id?.trim();
+  const u1 = drop.uploaded_image_1?.trim();
+  const u2 = drop.uploaded_image_2?.trim();
+  const slide1: CarouselSlide | null = nft
+    ? u1
+      ? { primary: toImageUrl(nft), fallback: toImageUrl(u1) }
+      : toImageUrl(nft)
+    : u1
+      ? toImageUrl(u1)
+      : null;
+  const slide2 = u2 ? toImageUrl(u2) : null;
+  return [slide1, slide2].filter(Boolean) as CarouselSlide[];
+}
 
 function DropCard({ drop }: { drop: DropRow }) {
   const minted = Number(drop.minted_count ?? 0);
@@ -17,11 +39,7 @@ function DropCard({ drop }: { drop: DropRow }) {
   const releaseDatePassed =
     !drop.release_date?.trim() || drop.release_date.trim() <= todayStr;
   const isReleased = total > 0 && minted > 0 && releaseDatePassed;
-  const [imageError, setImageError] = useState(false);
-  const imageBlobId = drop.image_blob_id?.trim();
-  const imageSrc = imageBlobId
-    ? `/api/walrus/${encodeURIComponent(imageBlobId)}`
-    : null;
+  const carouselSlides = dropCarouselSlides(drop);
 
   return (
     <Link
@@ -29,18 +47,12 @@ function DropCard({ drop }: { drop: DropRow }) {
       className="group block overflow-hidden rounded-xl shadow-xl transition hover:shadow-red-600/20"
     >
       <div className="relative aspect-square bg-transparent">
-        {imageSrc && !imageError ? (
-          <img
-            src={imageSrc}
-            alt={drop.name}
-            className="h-full w-full object-contain p-2"
-            onError={() => setImageError(true)}
-          />
-        ) : (
-          <div className="flex h-full w-full items-center justify-center text-white/50 text-sm bg-transparent">
-            {imageSrc ? "Image unavailable" : "No image"}
-          </div>
-        )}
+        <ImageCarousel
+          slides={carouselSlides}
+          alt={drop.name}
+          className="h-full w-full p-2"
+          imageClassName="h-full w-full object-contain"
+        />
       </div>
       <div className="p-4 bg-black border-x border-b border-red-600/40 rounded-b-xl">
         <h3 className="font-semibold text-white truncate">{drop.name}</h3>

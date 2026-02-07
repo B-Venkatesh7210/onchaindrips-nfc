@@ -15,6 +15,7 @@ import {
   type DropRow,
   type ShirtProfile,
 } from "@/lib/api";
+import { ImageCarousel } from "@/app/components/ImageCarousel";
 import { connectWalletAndLoadEnsProfile, hasEvmProvider } from "@/lib/ens";
 import { getStoredAddress, loginWithGoogle } from "@/lib/auth";
 
@@ -83,7 +84,6 @@ export default function ShirtPageContent({
     string,
     unknown
   > | null>(null);
-  const [imageError, setImageError] = useState(false);
   const [profile, setProfile] = useState<ShirtProfile | null>(null);
   const [profileLoading, setProfileLoading] = useState(false);
   const [profileError, setProfileError] = useState<string | null>(null);
@@ -371,13 +371,29 @@ export default function ShirtPageContent({
     return null;
   }
 
-  const imageBlobId =
-    walrusBlobIdToString(shirt.walrus_blob_id_image) ??
-    drop?.image_blob_id?.trim() ??
-    null;
-  const imageSrc = imageBlobId
-    ? `/api/walrus/${encodeURIComponent(imageBlobId)}`
-    : null;
+  const toImageUrl = (value: string): string => {
+    const v = value.trim();
+    if (/^https?:\/\//i.test(v)) return v;
+    return `/api/walrus/${encodeURIComponent(v)}`;
+  };
+  const shirtCarouselSlides = (): import("@/app/components/ImageCarousel").CarouselSlide[] => {
+    if (drop) {
+      const nft = drop.image_blob_id?.trim();
+      const u1 = drop.uploaded_image_1?.trim();
+      const u2 = drop.uploaded_image_2?.trim();
+      const slide1 = nft
+        ? u1
+          ? { primary: toImageUrl(nft), fallback: toImageUrl(u1) }
+          : toImageUrl(nft)
+        : u1
+          ? toImageUrl(u1)
+          : null;
+      const slide2 = u2 ? toImageUrl(u2) : null;
+      return [slide1, slide2].filter(Boolean) as import("@/app/components/ImageCarousel").CarouselSlide[];
+    }
+    const nft = walrusBlobIdToString(shirt.walrus_blob_id_image);
+    return nft ? [toImageUrl(nft)] : [];
+  };
   const totalSupply = drop ? Number(drop.total_supply ?? 0) : 0;
   const mintedCount = drop ? Number(drop.minted_count ?? 0) : 0;
   const remaining = Math.max(0, totalSupply - mintedCount);
@@ -403,18 +419,12 @@ export default function ShirtPageContent({
         {/* Card: same for all three views */}
         <div className="bg-white rounded-2xl border border-neutral-200 shadow-lg overflow-hidden">
           <div className="aspect-square bg-neutral-100 flex items-center justify-center">
-            {imageSrc && !imageError ? (
-              <img
-                src={imageSrc}
-                alt={dropName}
-                className="w-full h-full object-contain"
-                onError={() => setImageError(true)}
-              />
-            ) : (
-              <div className="flex h-full w-full items-center justify-center text-neutral-400 text-sm">
-                {imageSrc ? "Image unavailable" : "No image"}
-              </div>
-            )}
+            <ImageCarousel
+              slides={shirtCarouselSlides()}
+              alt={dropName}
+              className="w-full h-full"
+              imageClassName="w-full h-full object-contain"
+            />
           </div>
 
           <div className="p-5 sm:p-6 space-y-4">

@@ -34,6 +34,9 @@ export type DropRow = {
   offchain_attributes?: Record<string, unknown>;
   /** Walrus blob ID for the drop's NFT t-shirt image (from first shirt). */
   image_blob_id?: string | null;
+  /** Carousel image URLs: 1st = fallback if NFT fails, 2nd = second slide. */
+  uploaded_image_1?: string | null;
+  uploaded_image_2?: string | null;
 };
 
 export type DropBid = {
@@ -243,8 +246,8 @@ export async function adminMintShirts(
     walrusBlobIdImage: string;
     walrusBlobIdMetadata: string;
     count?: number;
-    gifUrl?: string;
-    imageUrls?: string[];
+    /** Two Walrus blob IDs for carousel images (uploaded at mint). */
+    imageUrls?: [string, string];
   }
 ): Promise<{
   dropObjectId: string;
@@ -261,6 +264,25 @@ export async function adminMintShirts(
   if (!res.ok) {
     const err = await res.json().catch(() => ({ error: res.statusText }));
     throw new Error((err as { error?: string }).error ?? "Failed to mint shirts");
+  }
+  return res.json();
+}
+
+/** Upload carousel image to Supabase Storage (admin). Returns public URL. */
+export async function uploadCarouselImageToSupabase(
+  adminAddress: string,
+  file: File
+): Promise<{ url: string }> {
+  const form = new FormData();
+  form.append("image", file);
+  const res = await fetch(`${API_URL}/admin/upload-carousel-image`, {
+    method: "POST",
+    headers: { "X-Admin-Address": adminAddress },
+    body: form,
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: res.statusText }));
+    throw new Error((err as { error?: string }).error ?? "Failed to upload carousel image");
   }
   return res.json();
 }
