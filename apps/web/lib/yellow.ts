@@ -801,6 +801,14 @@ export function getLoserRefunded(dropId: string, evmAddress: string): boolean {
   }
 }
 
+/** Clear stored EVM Yellow session (disconnect wallet from Yellow bidding). */
+export function clearStoredEvmSession(): void {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.removeItem(EVM_SESSION_KEY);
+  } catch {}
+}
+
 /** Restore persisted EVM Yellow session (for auto-connect on other drops). */
 export function getStoredEvmSession(): { evmAddress: string; depositedUsd: number; channelId?: string } | null {
   if (typeof window === "undefined") return null;

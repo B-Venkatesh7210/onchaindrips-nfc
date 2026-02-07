@@ -17,6 +17,7 @@ import { getStoredAddress } from "@/lib/auth";
 import { hasEvmProvider } from "@/lib/ens";
 import {
   addYellowBalance,
+  clearStoredEvmSession,
   closeYellowChannel,
   connectYellowWallet,
   ensureYellowBalance,
@@ -195,6 +196,12 @@ export default function DropDetailPage() {
     }
   }, [yellowSession, bidAmountInput]);
 
+  const handleDisconnectYellow = useCallback(() => {
+    setEvmAddress(null);
+    setYellowSession(null);
+    clearStoredEvmSession();
+  }, []);
+
   const handleReleaseFunds = useCallback(async () => {
     if (!evmAddress || !drop?.reservation_evm_recipient) return;
     const organizer = drop.reservation_evm_recipient.trim();
@@ -338,8 +345,8 @@ export default function DropDetailPage() {
   if (!objectId) {
     return (
       <div className="mx-auto max-w-2xl px-4 py-8">
-        <p className="text-neutral-500">Invalid drop.</p>
-        <Link href="/" className="mt-4 inline-block text-sm text-neutral-600 hover:text-neutral-900">← Home</Link>
+        <p className="text-white/70">Invalid drop.</p>
+        <Link href="/" className="mt-4 inline-block text-sm text-white/60 hover:text-white">← Home</Link>
       </div>
     );
   }
@@ -347,8 +354,8 @@ export default function DropDetailPage() {
   if (loading) {
     return (
       <div className="mx-auto max-w-2xl px-4 py-8">
-        <div className="h-8 w-48 animate-pulse rounded bg-neutral-200" />
-        <div className="mt-4 h-4 w-full animate-pulse rounded bg-neutral-100" />
+        <div className="h-8 w-48 animate-pulse rounded bg-black/40" />
+        <div className="mt-4 h-4 w-full animate-pulse rounded bg-black/30" />
       </div>
     );
   }
@@ -356,8 +363,8 @@ export default function DropDetailPage() {
   if (!drop) {
     return (
       <div className="mx-auto max-w-2xl px-4 py-8">
-        <p className="text-neutral-500">Drop not found.</p>
-        <Link href="/" className="mt-4 inline-block text-sm text-neutral-600 hover:text-neutral-900">← Home</Link>
+        <p className="text-white/70">Drop not found.</p>
+        <Link href="/" className="mt-4 inline-block text-sm text-white/60 hover:text-white">← Home</Link>
       </div>
     );
   }
@@ -377,482 +384,600 @@ export default function DropDetailPage() {
   ];
   const hasSizeInfo = sizeInfo.some((s) => s.value && s.value > 0);
 
+  const imageBlobId = drop.image_blob_id?.trim();
+  const imageSrc = imageBlobId
+    ? `/api/walrus/${encodeURIComponent(imageBlobId)}`
+    : null;
+  const btnClass =
+    "bg-red-600 hover:bg-red-700 text-white shadow-[0_0_16px_0_rgba(220,38,38,0.6)] hover:shadow-[0_0_32px_4px_rgba(220,38,38,0.8)]";
+
   return (
     <div className="mx-auto max-w-2xl px-4 py-8 space-y-6">
       <Link
         href="/"
-        className="text-sm text-neutral-500 hover:text-neutral-700"
+        className="text-sm text-white/60 hover:text-white transition-colors"
       >
         ← Back to drops
       </Link>
 
-      <div className="mt-2 rounded-xl border border-neutral-200 bg-white p-6">
-        <h1 className="text-2xl font-bold text-neutral-900">{drop.name}</h1>
-        <p className="mt-1 text-neutral-600">{drop.company_name}</p>
-        <p className="text-sm text-neutral-500">{drop.event_name}</p>
-        <div className="mt-4 flex flex-wrap items-center gap-3">
-          <span className="rounded-full bg-neutral-100 px-3 py-1 text-sm font-medium text-neutral-700">
-            {minted} / {total} minted
-          </span>
-          {drop.release_date && (
-            <span className="text-sm text-neutral-500">
-              Release: {drop.release_date}
-            </span>
+      {/* Section 1: Drop Details */}
+      <div className="mt-2 overflow-hidden rounded-xl shadow-xl">
+        {/* Drop name + Event name — black bg, red outline top/left/right */}
+        <div className="bg-black border border-red-600/40 border-b-0 rounded-t-xl px-6 py-4 text-center">
+          <h1 className="text-2xl font-bold text-white">{drop.name}</h1>
+          <p className="mt-1 text-white/80">{drop.event_name}</p>
+        </div>
+        {/* NFT image — transparent bg, ~90% of given space */}
+        <div className="relative aspect-square bg-transparent flex items-center justify-center">
+          {imageSrc ? (
+            <img
+              src={imageSrc}
+              alt={drop.name}
+              className="max-h-[90%] max-w-[90%] w-auto h-auto object-contain"
+            />
+          ) : (
+            <div className="flex h-48 w-full items-center justify-center text-white/40 text-sm">
+              No image
+            </div>
           )}
-          {typeof drop.reservation_slots === "number" &&
-            drop.reservation_slots > 0 && (
-              <span className="rounded-full bg-amber-50 px-3 py-1 text-xs font-medium text-amber-700">
-                {drop.reservation_slots} reservation slots
+        </div>
+        {/* Other details — black bg, red outline left/right/bottom */}
+        <div className="bg-black border border-red-600/40 border-t-0 rounded-b-xl px-6 py-4">
+          <p className="text-sm text-white/70">{drop.company_name}</p>
+          <div className="mt-3 flex flex-wrap items-center gap-3">
+            <span className="rounded-full bg-red-600/20 px-3 py-1 text-xs font-medium text-red-400">
+              {minted} / {total} minted
+            </span>
+            {drop.release_date && (
+              <span className="text-sm text-white/60">
+                Release: {drop.release_date}
               </span>
             )}
-        </div>
-        {hasSizeInfo && (
-          <div className="mt-3 text-xs text-neutral-600">
-            <span className="font-medium">Available sizes:</span>{" "}
-            {sizeInfo
-              .filter((s) => s.value && s.value > 0)
-              .map((s) => `${s.label} (${s.value})`)
-              .join(", ")}
+            {typeof drop.reservation_slots === "number" &&
+              drop.reservation_slots > 0 && (
+                <span className="rounded-full bg-amber-500/20 px-3 py-1 text-xs font-medium text-amber-400">
+                  {drop.reservation_slots} reservation slots
+                </span>
+              )}
           </div>
-        )}
-        {(drop.description ??
-          (drop.offchain_attributes &&
-          typeof drop.offchain_attributes === "object" &&
-          "description" in drop.offchain_attributes
-            ? (drop.offchain_attributes as { description?: string })
-                .description
-            : null)) && (
-          <p className="mt-4 text-neutral-600 text-sm">
-            {String(
-              drop.description ??
-                (
-                  (drop.offchain_attributes as { description?: string }) ??
-                  {}
-                ).description ??
-                "",
-            )}
-          </p>
-        )}
+          {hasSizeInfo && (
+            <p className="mt-3 text-xs text-white/60">
+              <span className="font-medium text-white/80">Available sizes:</span>{" "}
+              {sizeInfo
+                .filter((s) => s.value && s.value > 0)
+                .map((s) => `${s.label} (${s.value})`)
+                .join(", ")}
+            </p>
+          )}
+          {(drop.description ??
+            (drop.offchain_attributes &&
+            typeof drop.offchain_attributes === "object" &&
+            "description" in drop.offchain_attributes
+              ? (drop.offchain_attributes as { description?: string }).description
+              : null)) && (
+            <p className="mt-4 text-white/60 text-sm">
+              {String(
+                drop.description ??
+                  (
+                    (drop.offchain_attributes as { description?: string }) ?? {}
+                  ).description ??
+                  ""
+              )}
+            </p>
+          )}
+        </div>
       </div>
 
-      {/* Bidding panel (public, backed by Yellow session) */}
+      {/* Section 2: Bidding panel */}
       {hasBidding && !biddingClosed && (
-          <div className="rounded-xl border border-neutral-200 bg-white p-6 space-y-4">
-            <div className="flex items-center gap-2">
-              <h2 className="text-lg font-semibold text-neutral-900">
+        <div className="rounded-xl border border-red-600/40 bg-black/80 backdrop-blur-sm overflow-hidden shadow-xl">
+          <div className="p-6 space-y-5">
+            <div className="flex items-center gap-2 flex-wrap">
+              <h2 className="text-lg font-semibold text-white">
                 Bid for a reserved shirt
               </h2>
-              <span className="rounded bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-800 border border-amber-200">
+              <span className="rounded-full bg-amber-500/20 px-2.5 py-0.5 text-xs font-medium text-amber-400 border border-amber-500/30">
                 Powered by Yellow Network
               </span>
             </div>
-            <p className="text-sm text-neutral-600">
-              Bids use Yellow Network on Sepolia with ytest.usd. Connect your EVM wallet, request
-              test tokens from the faucet, fund your channel, then place your bid. No gas for
-              bidding—winners sign to release funds at settlement. Rabby wallet recommended.
+            <p className="text-sm text-white/70">
+              Bids use Yellow Network on Sepolia with ytest.usd. Connect your EVM wallet,
+              request test tokens from the faucet, fund your channel, then place your bid.
+              No gas for bidding—winners sign to release funds at settlement. Rabby wallet recommended.
             </p>
 
             {yellowError && (
-              <div className="space-y-1">
-                <p className="text-sm text-red-600">{yellowError}</p>
-                <p className="text-xs text-neutral-500">
-                  Open browser console (F12) → Console tab for step-by-step logs and where it failed.
+              <div className="rounded-lg border border-red-500/40 bg-red-950/40 px-4 py-3">
+                <p className="text-sm text-red-400">{yellowError}</p>
+                <p className="mt-1 text-xs text-white/50">
+                  Open browser console (F12) for step-by-step logs.
                 </p>
               </div>
             )}
 
-            <div className="space-y-3">
-              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                  <p className="text-xs font-medium text-neutral-600">
-                    Yellow session
+            {/* Wallet & balance block */}
+            <div className="rounded-lg border border-red-600/30 bg-black/60 p-4 space-y-3">
+              {!yellowSession ? (
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                  <p className="text-sm text-white/70">
+                    Connect an EVM wallet to start a Yellow session.
                   </p>
-                  <p className="text-xs text-neutral-500">
-                    {yellowSession && evmAddress
-                      ? `Connected: ${evmAddress.slice(0, 8)}…${evmAddress.slice(
-                          -6,
-                        )} · $${yellowSession.depositedUsd.toFixed(2)}${
-                          yellowSession.channelId ? " (channel funded)" : ""
-                        }`
-                      : "Connect an EVM wallet to start a Yellow session."}
-                  </p>
+                  <button
+                    type="button"
+                    onClick={handleConnectYellow}
+                    disabled={connectingYellow}
+                    className={`shrink-0 rounded-lg px-4 py-2.5 text-sm font-semibold transition-all ${btnClass} disabled:opacity-50 disabled:cursor-not-allowed`}
+                  >
+                    {connectingYellow
+                      ? yellowStep ?? "Connecting…"
+                      : "Connect wallet & fund"}
+                  </button>
                 </div>
-                <div className="mt-2 flex flex-wrap gap-2">
-                  {!yellowSession && (
-                    <button
-                      type="button"
-                      onClick={handleConnectYellow}
-                      disabled={connectingYellow}
-                      className="inline-flex items-center justify-center rounded-lg bg-neutral-900 px-3 py-2 text-xs font-medium text-white hover:bg-neutral-800 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      {connectingYellow
-                        ? yellowStep ?? "Connecting wallet…"
-                        : "Connect wallet & fund (ytest.usd)"}
-                    </button>
-                  )}
-                  {yellowSession && (
+              ) : (
+                <>
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <p className="text-xs font-medium text-white/60 uppercase tracking-wider">Connected</p>
+                      <p className="font-mono text-sm text-white/90">
+                        {evmAddress
+                          ? `${evmAddress.slice(0, 6)}…${evmAddress.slice(-4)}`
+                          : "—"}
+                      </p>
+                    </div>
+                    <div className="rounded-lg bg-red-600/20 border border-red-600/40 px-4 py-2 text-center min-w-[100px]">
+                      <p className="text-[10px] uppercase tracking-wider text-red-400/90">Balance</p>
+                      <p className="text-lg font-bold text-white">
+                        ${yellowSession.depositedUsd.toFixed(2)}
+                      </p>
+                      {yellowSession.channelId && (
+                        <p className="text-[10px] text-emerald-400/80">channel funded</p>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
                     <button
                       type="button"
                       onClick={handleTopUp}
                       disabled={toppingUp}
-                      className="inline-flex items-center justify-center rounded-lg border border-neutral-300 bg-white px-3 py-2 text-xs font-medium text-neutral-700 hover:bg-neutral-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="rounded-lg border border-red-600/50 bg-red-950/40 px-3 py-2 text-xs font-medium text-white/90 hover:bg-red-950/60 disabled:opacity-50 transition-colors"
                     >
                       {toppingUp ? "Requesting…" : "Request more tokens"}
                     </button>
-                  )}
-                </div>
-              </div>
-
-              {hasPlacedBid ? (
-                <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3">
-                  <p className="text-sm font-medium text-emerald-800">
-                    Already bid placed
-                  </p>
-                  <p className="mt-0.5 text-xs text-emerald-700">
-                    Your bid: ${myBid?.bid_amount_usd?.toFixed(2) ?? "—"}
-                    {myBid?.size ? ` · Size ${myBid.size}` : ""}
-                    {myRank ? ` · Rank #${myRank}` : ""}
-                  </p>
-                  <p className="mt-1 text-xs text-emerald-600">
-                    Wait for the bidding to get closed.
-                  </p>
-                </div>
-              ) : (
-                <>
-                  <div>
-                    <label className="mb-1 block text-sm font-medium text-neutral-700">
-                      Your bid (USD)
-                    </label>
-                    <input
-                      type="number"
-                      min={0}
-                      step={0.01}
-                      value={bidAmountInput}
-                      onChange={(e) => setBidAmountInput(e.target.value)}
-                      className="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm text-neutral-900 placeholder:text-neutral-400 focus:border-neutral-400 focus:outline-none"
-                      placeholder="e.g. 25.00"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="mb-1 block text-sm font-medium text-neutral-700">
-                      Size
-                    </label>
-                    <select
-                      value={mySize}
-                      onChange={(e) =>
-                        setMySize(e.target.value as
-                          | "S"
-                          | "M"
-                          | "L"
-                          | "XL"
-                          | "XXL"
-                          | "")
-                      }
-                      className="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm text-neutral-900 focus:border-neutral-400 focus:outline-none"
+                    <button
+                      type="button"
+                      onClick={handleDisconnectYellow}
+                      className="rounded-lg border border-white/20 bg-white/5 px-3 py-2 text-xs font-medium text-white/80 hover:bg-white/10 transition-colors"
                     >
-                      <option value="">Select size</option>
-                      <option value="S">S</option>
-                      <option value="M">M</option>
-                      <option value="L">L</option>
-                      <option value="XL">XL</option>
-                      <option value="XXL">XXL</option>
-                    </select>
+                      Disconnect wallet
+                    </button>
                   </div>
-
-                  <button
-                    type="button"
-                    onClick={handlePlaceBid}
-                    disabled={placingBid}
-                    className="w-full rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {placingBid ? "Placing bid…" : "Place bid"}
-                  </button>
                 </>
-              )}
-
-              {(myRank || reservationSlots) && (
-                <p className="text-xs text-neutral-600">
-                  {myRank
-                    ? `Your current rank: #${myRank}${
-                        reservationSlots
-                          ? ` (top ${reservationSlots} will win a reservation)`
-                          : ""
-                      }`
-                    : reservationSlots
-                      ? `Top ${reservationSlots} bidders will win a reservation.`
-                      : null}
-                </p>
               )}
             </div>
 
-            <div className="border-t border-neutral-200 pt-4">
-              <h3 className="text-sm font-semibold text-neutral-900">
-                Live leaderboard
-              </h3>
+            {hasPlacedBid ? (
+              <div className="rounded-lg border border-emerald-500/40 bg-emerald-950/30 px-4 py-3">
+                <p className="text-sm font-medium text-emerald-400">Already bid placed</p>
+                <p className="mt-0.5 text-xs text-white/70">
+                  Your bid: ${myBid?.bid_amount_usd?.toFixed(2) ?? "—"}
+                  {myBid?.size ? ` · Size ${myBid.size}` : ""}
+                  {myRank ? ` · Rank #${myRank}` : ""}
+                </p>
+                <p className="mt-1 text-xs text-white/50">
+                  Wait for the bidding to get closed.
+                </p>
+              </div>
+            ) : (
+              <div className="rounded-lg border border-red-600/30 bg-black/60 p-4 space-y-4">
+                <div>
+                  <label className="mb-2 block text-sm font-medium text-white/90">
+                    Your bid (USD)
+                  </label>
+                  <input
+                    type="number"
+                    min={0}
+                    step={0.01}
+                    value={bidAmountInput}
+                    onChange={(e) => setBidAmountInput(e.target.value)}
+                    className="w-full rounded-lg border border-red-600/40 bg-black/60 px-4 py-3 text-white placeholder:text-white/40 focus:border-red-500 focus:ring-1 focus:ring-red-500/50 focus:outline-none"
+                    placeholder="e.g. 25.00"
+                  />
+                </div>
+                <div>
+                  <label className="mb-2 block text-sm font-medium text-white/90">Size</label>
+                  <div className="flex flex-wrap gap-2" role="group" aria-label="Select shirt size">
+                    {(["S", "M", "L", "XL", "XXL"] as const).map((size) => {
+                      const info = sizeInfo.find((s) => s.label === size);
+                      const available = !hasSizeInfo || (info?.value ?? 0) > 0;
+                      const isSelected = mySize === size;
+                      return (
+                        <button
+                          key={size}
+                          type="button"
+                          onClick={() => available && setMySize(size)}
+                          disabled={!available}
+                          className={`
+                            min-w-[3rem] rounded-lg px-4 py-3 text-sm font-semibold transition-all
+                            ${isSelected
+                              ? "border-2 border-red-500 bg-red-600/30 text-white shadow-[0_0_12px_rgba(220,38,38,0.4)]"
+                              : available
+                                ? "border border-red-600/40 bg-black/60 text-white/90 hover:border-red-500/60 hover:bg-red-950/40 hover:text-white"
+                                : "cursor-not-allowed border border-white/10 bg-black/30 text-white/40"
+                            }
+                          `}
+                        >
+                          <span>{size}</span>
+                          {hasSizeInfo && info && (
+                            <span className={`ml-1 text-[10px] font-normal ${available ? "text-white/60" : ""}`}>
+                              ({info.value})
+                            </span>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={handlePlaceBid}
+                  disabled={placingBid || !yellowSession}
+                  className={`w-full rounded-lg px-4 py-3 text-sm font-semibold transition-all ${btnClass} disabled:opacity-50 disabled:cursor-not-allowed`}
+                >
+                  {placingBid ? "Placing bid…" : "Place bid"}
+                </button>
+                {(myRank || reservationSlots) && (
+                  <p className="text-xs text-white/60 text-center">
+                    {myRank
+                      ? `Your rank: #${myRank}${reservationSlots ? ` (top ${reservationSlots} win)` : ""}`
+                      : reservationSlots
+                        ? `Top ${reservationSlots} bidders will win a reservation.`
+                        : null}
+                  </p>
+                )}
+              </div>
+            )}
+
+            {/* Live leaderboard */}
+            <div className="border-t border-red-600/20 pt-4">
+              <h3 className="text-sm font-semibold text-white mb-3">Live leaderboard</h3>
               {bidsLoading ? (
-                <p className="mt-2 text-xs text-neutral-500">Loading bids…</p>
+                <p className="text-xs text-white/50">Loading bids…</p>
               ) : bidsError ? (
-                <p className="mt-2 text-xs text-red-600">{bidsError}</p>
+                <p className="text-xs text-red-400">{bidsError}</p>
               ) : bids.length === 0 ? (
-                <p className="mt-2 text-xs text-neutral-500">
+                <p className="text-sm text-white/50 py-4 text-center rounded-lg bg-black/40 border border-dashed border-red-600/20">
                   No bids yet. Be the first to bid.
                 </p>
               ) : (
-                <ul className="mt-2 space-y-1">
+                <div className="rounded-lg border border-red-600/20 overflow-hidden">
+                  <div className="grid grid-cols-[auto_1fr_auto_auto] gap-3 px-4 py-2 bg-red-950/20 text-[10px] uppercase tracking-wider text-white/60">
+                    <span>Rank</span>
+                    <span>Address</span>
+                    <span>Size</span>
+                    <span>Amount</span>
+                  </div>
                   {bids.slice(0, 10).map((b) => (
-                    <li
+                    <div
                       key={`${b.evm_address}-${b.created_at}`}
-                      className="flex items-center justify-between text-xs text-neutral-700"
+                      className={`grid grid-cols-[auto_1fr_auto_auto] gap-3 px-4 py-2.5 text-sm border-t border-red-600/10 ${
+                        evmAddress?.toLowerCase() === b.evm_address.toLowerCase()
+                          ? "bg-red-600/10"
+                          : ""
+                      }`}
                     >
-                      <span className="font-mono text-[11px] text-neutral-500">
-                        #{b.rank} ·{" "}
-                        {`${b.evm_address.slice(0, 6)}…${b.evm_address.slice(
-                          -4,
-                        )}`}
+                      <span className="font-mono font-semibold text-red-400">#{b.rank}</span>
+                      <span className="font-mono text-white/90 truncate">
+                        {b.evm_address.slice(0, 6)}…{b.evm_address.slice(-4)}
                       </span>
-                      <span className="font-medium">
+                      <span className="text-white/80">{b.size ?? "—"}</span>
+                      <span className="font-semibold text-emerald-400">
                         ${b.bid_amount_usd.toFixed(2)}
                       </span>
-                    </li>
+                    </div>
                   ))}
                   {bids.length > 10 && (
-                    <li className="mt-1 text-[11px] text-neutral-400">
-                      + {bids.length - 10} more bidder
-                      {bids.length - 10 === 1 ? "" : "s"}
-                    </li>
+                    <div className="px-4 py-2 text-xs text-white/50 border-t border-red-600/10">
+                      + {bids.length - 10} more bidder{bids.length - 10 === 1 ? "" : "s"}
+                    </div>
                   )}
-                </ul>
+                </div>
               )}
             </div>
-            <div className="border-t border-neutral-100 pt-3 mt-2">
-              <p className="text-[10px] text-neutral-400">
-                Yellow Network · Sepolia · ytest.usd ·{" "}
-                <a href="https://yellow.org" target="_blank" rel="noopener noreferrer" className="underline hover:text-neutral-600">
-                  yellow.org
-                </a>
-              </p>
-            </div>
-          </div>
-        )}
 
-      {/* Admin-only: Yellow settlement preview + close-bids helper */}
-      {isAdmin && !biddingClosed && (
-        <div className="rounded-xl border border-neutral-200 bg-white p-6 space-y-3">
-          <div className="flex items-center justify-between gap-2">
-            <h2 className="text-sm font-semibold text-neutral-900">
-              Admin: settle Yellow bids & close reservations
-            </h2>
-            <button
-              type="button"
-              onClick={handleAdminLoadSummary}
-              disabled={adminSummaryLoading}
-              className="rounded-lg border border-neutral-300 bg-neutral-50 px-3 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-100 disabled:opacity-50"
-            >
-              {adminSummaryLoading ? "Loading…" : "Preview winners"}
-            </button>
-          </div>
-          <p className="text-xs text-neutral-600">
-            Preview reads bids from Supabase. Settlement: 1) updates DB (winners
-            marked, bidding closed), 2) each winner signs in their browser via Yellow Network
-            to release funds to the organizer.
-          </p>
-          {adminSummaryError && (
-            <p className="text-xs text-red-600">{adminSummaryError}</p>
-          )}
-
-          {adminWinners.length > 0 && (
-            <div className="mt-2 space-y-2">
-              <p className="text-xs font-medium text-neutral-800">
-                Winners ({adminWinners.length}) — total ${" "}
-                {adminTotalWinningUsd.toFixed(2)} to{" "}
-                {drop.reservation_evm_recipient
-                  ? drop.reservation_evm_recipient
-                  : "reservation_evm_recipient not set"}
-              </p>
-              <ul className="max-h-40 space-y-1 overflow-y-auto rounded border border-neutral-200 bg-neutral-50 p-2">
-                {adminWinners.map((w) => (
-                  <li
-                    key={`${w.evm_address}-${w.rank}`}
-                    className="flex items-center justify-between text-[11px] text-neutral-700"
-                  >
-                    <span className="font-mono text-[11px] text-neutral-500">
-                      #{w.rank} ·{" "}
-                      {`${w.evm_address.slice(0, 6)}…${w.evm_address.slice(
-                        -4,
-                      )}`}
-                    </span>
-                    <span className="font-medium">
-                      ${w.bid_amount_usd.toFixed(2)}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-
-              {adminLosers.length > 0 && (
-                <p className="text-[11px] text-neutral-500">
-                  {adminLosers.length} additional bidder
-                  {adminLosers.length === 1 ? "" : "s"} will not be reserved.
-                </p>
-              )}
-
-              <button
-                type="button"
-                onClick={handleAdminSettleAndClose}
-                disabled={adminSettlementRunning}
-                className="mt-2 w-full rounded-lg bg-neutral-900 px-4 py-2 text-xs font-medium text-white hover:bg-neutral-800 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {adminSettlementRunning
-                  ? "Settling via Yellow…"
-                  : "Settle winners via Yellow & close bidding"}
-              </button>
-            </div>
-          )}
-
-          {adminWinners.length === 0 && !adminSummaryLoading && (
-            <p className="text-xs text-neutral-500">
-              Load the summary first to see current winners and totals.
+            <p className="text-[10px] text-white/40 text-center">
+              Yellow Network · Sepolia · ytest.usd ·{" "}
+              <a href="https://yellow.org" target="_blank" rel="noopener noreferrer" className="underline hover:text-white/60">
+                yellow.org
+              </a>
             </p>
-          )}
+          </div>
         </div>
       )}
 
-      {/* If bidding already closed, show winners/losers summary for everyone */}
-      {hasBidding && biddingClosed && (
-        <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-6 space-y-3">
-          <div className="flex items-center gap-2">
-            <h2 className="text-sm font-semibold text-emerald-900">
-              Bidding closed
-            </h2>
-            <span className="rounded bg-amber-50 px-2 py-0.5 text-[10px] font-medium text-amber-800 border border-amber-200">
-              Yellow Network
-            </span>
-          </div>
-          {(() => {
-            const myBidResult = evmAddress
-              ? bids.find((b) => b.evm_address.toLowerCase() === evmAddress.toLowerCase())
-              : null;
-            const myWinningBid = myBidResult?.status === "won" ? myBidResult : null;
-            const myLosingBid = myBidResult?.status === "lost" ? myBidResult : null;
-
-            // Loser: show message (balance refund handled in useEffect)
-            if (myLosingBid && evmAddress) {
-              const refundAmount = myLosingBid.bid_amount_usd;
-              return (
-                <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 space-y-2">
-                  <p className="text-sm font-medium text-amber-900">
-                    Unfortunately there were higher bids in this drop who won.
-                  </p>
-                  <p className="text-xs text-amber-800">
-                    Your bid amount (${refundAmount.toFixed(2)}) has been returned to your wallet.
-                  </p>
-                </div>
-              );
-            }
-
-            // Winner: show reservation message
-            if (myWinningBid && evmAddress) {
-              const channelId = yellowSession?.channelId ?? getStoredChannelId(evmAddress);
-              const canRelease = drop?.reservation_evm_recipient && channelId && !useYellowSandbox();
-              return (
-                <div className="rounded-lg border border-emerald-300 bg-white p-4 space-y-2">
-                  <p className="text-sm font-medium text-emerald-900">
-                    You reserved a t-shirt for yourself.
-                  </p>
-                  <p className="text-xs text-emerald-700">
-                    Show this message to the authority and avail a t-shirt.
-                  </p>
-                  {canRelease && (
-                    <>
-                      <p className="text-xs text-emerald-600">
-                        Sign with your wallet to release ${myWinningBid.bid_amount_usd.toFixed(2)} to the organizer.
-                      </p>
-                      <button
-                        type="button"
-                        onClick={handleReleaseFunds}
-                        disabled={releasingFunds}
-                        className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-500 disabled:opacity-50"
-                      >
-                        {releasingFunds ? "Releasing…" : "Release funds"}
-                      </button>
-                    </>
-                  )}
-                </div>
-              );
-            }
-            const hasWinners = bids.some((b) => b.status === "won");
-            if (hasWinners && !evmAddress) {
-              return (
-                <div className="rounded-lg border border-emerald-300 bg-white p-4 space-y-2">
-                  <p className="text-xs text-emerald-700">
-                    Winners: connect your EVM wallet to see your result.
-                  </p>
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      try {
-                        if (!hasEvmProvider()) throw new Error("No EVM wallet");
-                        const addr = await connectYellowWallet();
-                        setEvmAddress(addr);
-                        const stored = getStoredEvmSession();
-                        if (stored && addr.toLowerCase() === stored.evmAddress.toLowerCase()) {
-                          const bal = useYellowSandbox() ? getStoredYellowBalance(addr) : stored.depositedUsd;
-                          setYellowSession({ userAddress: addr, appId: "onchaindrips-nfc-bidding", depositedUsd: bal, channelId: stored.channelId });
-                        }
-                      } catch (e) {
-                        setYellowError(e instanceof Error ? e.message : "Failed");
-                      }
-                    }}
-                    className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-500"
-                  >
-                    Connect wallet
-                  </button>
-                </div>
-              );
-            }
-            return null;
-          })()}
-          {bidsLoading ? (
-            <p className="text-xs text-emerald-700">Loading results…</p>
-          ) : bids.length === 0 ? (
-            <p className="text-xs text-emerald-700">
-              No bids were placed for this drop.
+      {/* Section 3: Admin — settle Yellow bids & close reservations */}
+      {isAdmin && !biddingClosed && (
+        <div className="rounded-xl border border-red-600/40 bg-black/80 backdrop-blur-sm overflow-hidden shadow-xl">
+          <div className="p-6 space-y-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <h2 className="text-base font-semibold text-white">
+                Admin: settle Yellow bids & close reservations
+              </h2>
+              <button
+                type="button"
+                onClick={handleAdminLoadSummary}
+                disabled={adminSummaryLoading}
+                className="rounded-lg border border-red-600/50 bg-red-950/40 px-4 py-2 text-sm font-medium text-white/90 hover:bg-red-950/60 disabled:opacity-50 transition-colors"
+              >
+                {adminSummaryLoading ? "Loading…" : "Preview winners"}
+              </button>
+            </div>
+            <p className="text-xs text-white/60">
+              Preview reads bids from Supabase. Settlement: 1) updates DB (winners marked, bidding closed),
+              2) each winner signs in their browser via Yellow Network to release funds to the organizer.
             </p>
-          ) : (
-            <>
-              <p className="text-xs text-emerald-800">
-                Winners (top {slots}):
+            {adminSummaryError && (
+              <div className="rounded-lg border border-red-500/40 bg-red-950/40 px-4 py-3">
+                <p className="text-sm text-red-400">{adminSummaryError}</p>
+              </div>
+            )}
+
+            {adminWinners.length > 0 && (
+              <div className="space-y-4">
+                <div className="rounded-lg border border-red-600/30 bg-black/60 p-4">
+                  <p className="text-sm font-medium text-white/90 mb-3">
+                    Winners ({adminWinners.length}) — total $
+                    {adminTotalWinningUsd.toFixed(2)} to{" "}
+                    <span className="font-mono text-xs">
+                      {drop.reservation_evm_recipient
+                        ? `${drop.reservation_evm_recipient.slice(0, 6)}…${drop.reservation_evm_recipient.slice(-4)}`
+                        : "not set"}
+                    </span>
+                  </p>
+                  <div className="rounded border border-red-600/20 overflow-hidden">
+                    <div className="grid grid-cols-[auto_1fr_auto] gap-3 px-3 py-2 bg-red-950/30 text-[10px] uppercase tracking-wider text-white/60">
+                      <span>Rank</span>
+                      <span>Address</span>
+                      <span>Amount</span>
+                    </div>
+                    {adminWinners.map((w) => (
+                      <div
+                        key={`${w.evm_address}-${w.rank}`}
+                        className="grid grid-cols-[auto_1fr_auto] gap-3 px-3 py-2 text-sm border-t border-red-600/10"
+                      >
+                        <span className="font-mono font-semibold text-emerald-400">#{w.rank}</span>
+                        <span className="font-mono text-white/90 truncate">
+                          {w.evm_address.slice(0, 6)}…{w.evm_address.slice(-4)}
+                        </span>
+                        <span className="font-semibold text-white">${w.bid_amount_usd.toFixed(2)}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {adminLosers.length > 0 && (
+                  <p className="text-xs text-amber-400/90">
+                    {adminLosers.length} additional bidder
+                    {adminLosers.length === 1 ? "" : "s"} will not be reserved (refunded).
+                  </p>
+                )}
+
+                <button
+                  type="button"
+                  onClick={handleAdminSettleAndClose}
+                  disabled={adminSettlementRunning}
+                  className={`w-full rounded-lg px-4 py-3 text-sm font-semibold transition-all ${btnClass} disabled:opacity-50 disabled:cursor-not-allowed`}
+                >
+                  {adminSettlementRunning
+                    ? "Settling via Yellow…"
+                    : "Settle winners via Yellow & close bidding"}
+                </button>
+              </div>
+            )}
+
+            {adminWinners.length === 0 && !adminSummaryLoading && (
+              <p className="text-sm text-white/50 py-4 text-center rounded-lg bg-black/40 border border-dashed border-red-600/20">
+                Load the summary first to see current winners and totals.
               </p>
-              <ul className="mt-1 space-y-1 text-xs text-emerald-900">
-                {bids
-                  .filter((b) => b.status === "won")
-                  .sort((a, b) => a.rank - b.rank)
-                  .map((b) => (
-                    <li key={`${b.evm_address}-won`}>
-                      #{b.rank} — {b.evm_address.slice(0, 6)}…
-                      {b.evm_address.slice(-4)} — $
-                      {b.bid_amount_usd.toFixed(2)}
-                      {b.size ? ` · ${b.size}` : ""}
-                    </li>
-                  ))}
-              </ul>
-              <details className="mt-2">
-                <summary className="cursor-pointer text-xs text-emerald-800">
-                  Show all bids
-                </summary>
-                <ul className="mt-1 space-y-1 text-xs text-emerald-900">
-                  {bids.map((b) => (
-                    <li key={`${b.evm_address}-${b.rank}`}>
-                      #{b.rank} — {b.evm_address.slice(0, 6)}…
-                      {b.evm_address.slice(-4)} — $
-                      {b.bid_amount_usd.toFixed(2)} ({b.status}
-                      {b.size ? `, ${b.size}` : ""})
-                    </li>
-                  ))}
-                </ul>
-              </details>
-            </>
-          )}
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Bidding closed: winners, losers, non-participants */}
+      {hasBidding && biddingClosed && (
+        <div className="rounded-xl border border-red-600/40 bg-black/80 backdrop-blur-sm overflow-hidden shadow-xl">
+          <div className="p-6 space-y-4">
+            <div className="flex items-center gap-2">
+              <h2 className="text-base font-semibold text-white">Bidding closed</h2>
+              <span className="rounded-full bg-amber-500/20 px-2.5 py-0.5 text-xs font-medium text-amber-400 border border-amber-500/30">
+                Yellow Network
+              </span>
+            </div>
+
+            {(() => {
+              const myBidResult = evmAddress
+                ? bids.find((b) => b.evm_address.toLowerCase() === evmAddress.toLowerCase())
+                : null;
+              const myWinningBid = myBidResult?.status === "won" ? myBidResult : null;
+              const myLosingBid = myBidResult?.status === "lost" ? myBidResult : null;
+              const hasWinners = bids.some((b) => b.status === "won");
+              const participatedButLost = evmAddress && bids.some((b) => b.evm_address.toLowerCase() === evmAddress.toLowerCase());
+              const didntParticipate = evmAddress && !participatedButLost && hasWinners;
+
+              // Loser: refund message
+              if (myLosingBid && evmAddress) {
+                const refundAmount = myLosingBid.bid_amount_usd;
+                return (
+                  <div className="rounded-lg border border-amber-500/40 bg-amber-950/30 p-4 space-y-2">
+                    <p className="text-sm font-medium text-amber-400">
+                      Unfortunately there were higher bids in this drop who won.
+                    </p>
+                    <p className="text-xs text-white/70">
+                      Your bid amount (${refundAmount.toFixed(2)}) has been returned to your Yellow balance.
+                    </p>
+                  </div>
+                );
+              }
+
+              // Winner: reservation message + release funds
+              if (myWinningBid && evmAddress) {
+                const channelId = yellowSession?.channelId ?? getStoredChannelId(evmAddress);
+                const canRelease = drop?.reservation_evm_recipient && channelId && !useYellowSandbox();
+                return (
+                  <div className="rounded-lg border border-emerald-500/40 bg-emerald-950/30 p-4 space-y-3">
+                    <p className="text-sm font-medium text-emerald-400">You reserved a t-shirt.</p>
+                    <p className="text-xs text-white/70">
+                      Show this message to the authority to claim your t-shirt.
+                    </p>
+                    {canRelease && (
+                      <>
+                        <p className="text-xs text-white/60">
+                          Sign with your wallet to release ${myWinningBid.bid_amount_usd.toFixed(2)} to the organizer.
+                        </p>
+                        <button
+                          type="button"
+                          onClick={handleReleaseFunds}
+                          disabled={releasingFunds}
+                          className={`rounded-lg px-4 py-2 text-sm font-semibold ${btnClass} disabled:opacity-50`}
+                        >
+                          {releasingFunds ? "Releasing…" : "Release funds"}
+                        </button>
+                      </>
+                    )}
+                  </div>
+                );
+              }
+
+              // Winner potential: not connected — prompt to connect
+              if (hasWinners && !evmAddress) {
+                return (
+                  <div className="rounded-lg border border-emerald-500/40 bg-emerald-950/30 p-4 space-y-3">
+                    <p className="text-sm text-white/90">Connect your EVM wallet to see your result.</p>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        try {
+                          if (!hasEvmProvider()) throw new Error("No EVM wallet");
+                          const addr = await connectYellowWallet();
+                          setEvmAddress(addr);
+                          const stored = getStoredEvmSession();
+                          if (stored && addr.toLowerCase() === stored.evmAddress.toLowerCase()) {
+                            const bal = useYellowSandbox() ? getStoredYellowBalance(addr) : stored.depositedUsd;
+                            setYellowSession({ userAddress: addr, appId: "onchaindrips-nfc-bidding", depositedUsd: bal, channelId: stored.channelId });
+                          }
+                        } catch (e) {
+                          setYellowError(e instanceof Error ? e.message : "Failed");
+                        }
+                      }}
+                      className={`rounded-lg px-4 py-2 text-sm font-semibold ${btnClass}`}
+                    >
+                      Connect wallet
+                    </button>
+                  </div>
+                );
+              }
+
+              // Didn't participate but bidding closed with winners
+              if (didntParticipate) {
+                return (
+                  <div className="rounded-lg border border-white/20 bg-white/5 p-4">
+                    <p className="text-sm text-white/80">
+                      Bidding has closed. You did not place a bid in this drop.
+                    </p>
+                    <p className="text-xs text-white/50 mt-1">
+                      Winners are shown below.
+                    </p>
+                  </div>
+                );
+              }
+
+              return null;
+            })()}
+
+            {/* Results summary */}
+            {bidsLoading ? (
+              <p className="text-sm text-white/50">Loading results…</p>
+            ) : bids.length === 0 ? (
+              <div className="rounded-lg border border-dashed border-red-600/20 bg-black/40 p-6 text-center">
+                <p className="text-sm text-white/60">No bids were placed for this drop.</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <div>
+                  <h3 className="text-sm font-medium text-white/90 mb-2">Winners (top {slots})</h3>
+                  <div className="rounded-lg border border-emerald-500/30 overflow-hidden">
+                    <div className="grid grid-cols-[auto_1fr_auto_auto] gap-3 px-3 py-2 bg-emerald-950/30 text-[10px] uppercase tracking-wider text-white/60">
+                      <span>Rank</span>
+                      <span>Address</span>
+                      <span>Size</span>
+                      <span>Amount</span>
+                    </div>
+                    {bids
+                      .filter((b) => b.status === "won")
+                      .sort((a, b) => a.rank - b.rank)
+                      .map((b) => (
+                        <div
+                          key={`${b.evm_address}-won`}
+                          className="grid grid-cols-[auto_1fr_auto_auto] gap-3 px-3 py-2 text-sm border-t border-emerald-500/10"
+                        >
+                          <span className="font-mono font-semibold text-emerald-400">#{b.rank}</span>
+                          <span className="font-mono text-white/90 truncate">
+                            {b.evm_address.slice(0, 6)}…{b.evm_address.slice(-4)}
+                          </span>
+                          <span className="text-white/80">{b.size ?? "—"}</span>
+                          <span className="font-semibold text-emerald-400">${b.bid_amount_usd.toFixed(2)}</span>
+                        </div>
+                      ))}
+                  </div>
+                </div>
+
+                {bids.some((b) => b.status === "lost") && (
+                  <details className="group">
+                    <summary className="cursor-pointer text-sm text-white/70 hover:text-white">
+                      Show all bids (including outbid)
+                    </summary>
+                    <div className="mt-2 rounded-lg border border-red-600/20 overflow-hidden">
+                      <div className="grid grid-cols-[auto_1fr_auto_auto_auto] gap-3 px-3 py-2 bg-red-950/20 text-[10px] uppercase tracking-wider text-white/60">
+                        <span>Rank</span>
+                        <span>Address</span>
+                        <span>Size</span>
+                        <span>Amount</span>
+                        <span>Status</span>
+                      </div>
+                      {bids
+                        .sort((a, b) => a.rank - b.rank)
+                        .map((b) => (
+                          <div
+                            key={`${b.evm_address}-${b.rank}`}
+                            className={`grid grid-cols-[auto_1fr_auto_auto_auto] gap-3 px-3 py-2 text-sm border-t border-red-600/10 ${
+                              b.status === "lost" ? "text-white/60" : ""
+                            }`}
+                          >
+                            <span className="font-mono">#{b.rank}</span>
+                            <span className="font-mono truncate">
+                              {b.evm_address.slice(0, 6)}…{b.evm_address.slice(-4)}
+                            </span>
+                            <span>{b.size ?? "—"}</span>
+                            <span>${b.bid_amount_usd.toFixed(2)}</span>
+                            <span
+                              className={
+                                b.status === "won"
+                                  ? "text-emerald-400"
+                                  : b.status === "lost"
+                                    ? "text-amber-400"
+                                    : "text-white/50"
+                              }
+                            >
+                              {b.status}
+                            </span>
+                          </div>
+                        ))}
+                    </div>
+                  </details>
+                )}
+              </div>
+            )}
+          </div>
         </div>
       )}
     </div>
