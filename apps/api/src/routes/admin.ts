@@ -156,6 +156,402 @@ export async function listDropsHandler(req: Request, res: Response): Promise<voi
 }
 
 /**
+ * GET /admin/drops/:dropId/bids/summary — admin-only preview of winners/losers.
+ *
+ * This DOES NOT mutate any state; it simply:
+ * - loads the drop + its reservation config
+ * - loads all bids for the drop
+ * - computes what the winners list would be if we closed bidding now
+ *
+ * The response is designed to be consumed by the admin UI before calling
+ * the actual close-bids endpoint and before triggering Yellow settlement.
+ */
+export async function getDropBidsSummaryHandler(
+  req: Request,
+  res: Response,
+): Promise<void> {
+  const dropId = req.params.dropId;
+  if (!dropId?.trim()) {
+    res.status(400).json({ error: "dropId is required" });
+    return;
+  }
+  const supabase = getSupabase();
+  if (!supabase) {
+    res.status(503).json({ error: "Supabase not configured" });
+    return;
+  }
+
+  try {
+    const { data: drop, error: dropErr } = await supabase
+      .from("drops")
+      .select(
+        "object_id, name, reservation_slots, reservation_evm_recipient, bidding_closed, bidding_ends_at",
+      )
+      .eq("object_id", dropId)
+      .maybeSingle();
+    if (dropErr) {
+      res
+        .status(500)
+        .json({ error: "Failed to load drop", details: dropErr.message });
+      return;
+    }
+    if (!drop) {
+      res.status(404).json({ error: "Drop not found" });
+      return;
+    }
+
+    const slots = Number(
+      (drop as { reservation_slots?: number }).reservation_slots ?? 0,
+    );
+    if (!slots || slots <= 0) {
+      res
+        .status(400)
+        .json({ error: "This drop does not support reservations" });
+      return;
+    }
+
+    const { data: bids, error: bidsErr } = await supabase
+      .from("reservations")
+      .select("evm_address, bid_amount_usd, created_at, size_preference")
+      .eq("drop_object_id", dropId)
+      .order("bid_amount_usd", { ascending: false })
+      .order("created_at", { ascending: true });
+    if (bidsErr) {
+      res
+        .status(500)
+        .json({ error: "Failed to load bids", details: bidsErr.message });
+      return;
+    }
+
+    const list = bids ?? [];
+    const winners = list.slice(0, slots);
+    const losers = list.slice(slots);
+
+    res.json({
+      drop: {
+        object_id: drop.object_id,
+        name: drop.name,
+        reservation_slots: slots,
+        reservation_evm_recipient: (drop as {
+          reservation_evm_recipient?: string | null;
+        }).reservation_evm_recipient,
+        bidding_closed: (drop as { bidding_closed?: boolean }).bidding_closed,
+        bidding_ends_at: (drop as {
+          bidding_ends_at?: string | null;
+        }).bidding_ends_at,
+      },
+      winners: winners.map((w, idx) => ({
+        evm_address: w.evm_address,
+        bid_amount_usd: Number(w.bid_amount_usd),
+        rank: idx + 1,
+        size:
+          (w as { size_preference?: string | null }).size_preference ?? null,
+      })),
+      losers: losers.map((l) => ({
+        evm_address: l.evm_address,
+        bid_amount_usd: Number(l.bid_amount_usd),
+        size:
+          (l as { size_preference?: string | null }).size_preference ?? null,
+      })),
+    });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    res
+      .status(500)
+      .json({ error: "Failed to load bids summary", details: message });
+  }
+}
+
+/**
+ * GET /drops/:dropId/bids — list bids for a drop (public).
+ * Returns bids ordered by amount desc, then created_at asc.
+ */
+export async function getDropBidsHandler(req: Request, res: Response): Promise<void> {
+  const dropId = req.params.dropId;
+  if (!dropId?.trim()) {
+    res.status(400).json({ error: "dropId is required" });
+    return;
+  }
+  const supabase = getSupabase();
+  if (!supabase) {
+    res.status(503).json({ error: "Supabase not configured" });
+    return;
+  }
+  try {
+    const { data, error } = await supabase
+      .from("reservations")
+      .select(
+        "evm_address, bid_amount_usd, rank, status, created_at, size_preference",
+      )
+      .eq("drop_object_id", dropId)
+      .order("bid_amount_usd", { ascending: false })
+      .order("created_at", { ascending: true });
+    if (error) {
+      res
+        .status(500)
+        .json({ error: "Failed to list bids", details: error.message });
+      return;
+    }
+    const bids = (data ?? []).map((r, idx) => ({
+      evm_address: r.evm_address,
+      bid_amount_usd: Number(r.bid_amount_usd),
+      rank: (r as { rank?: number | null }).rank ?? idx + 1,
+      status: (r as { status?: string | null }).status ?? "pending",
+      created_at: r.created_at,
+      size:
+        (r as { size_preference?: string | null }).size_preference ?? null,
+    }));
+    res.json({ bids });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    res.status(500).json({ error: "Failed to list bids", details: message });
+  }
+}
+
+/**
+ * POST /drops/:dropId/bids — place or update a bid for a drop (public).
+ * Body: { evm_address: string, bid_amount_usd: number, size: "S" | "M" | "L" | "XL" | "XXL" }
+ */
+export async function placeBidHandler(req: Request, res: Response): Promise<void> {
+  const dropId = req.params.dropId;
+  if (!dropId?.trim()) {
+    res.status(400).json({ error: "dropId is required" });
+    return;
+  }
+  const supabase = getSupabase();
+  if (!supabase) {
+    res.status(503).json({ error: "Supabase not configured" });
+    return;
+  }
+
+  const body = req.body as {
+    evm_address?: string;
+    bid_amount_usd?: number;
+    size?: string;
+  };
+  const evmAddress = body.evm_address?.trim();
+  const rawAmount = body.bid_amount_usd;
+  const rawSize = body.size?.trim().toUpperCase();
+
+  if (!evmAddress) {
+    res.status(400).json({ error: "evm_address is required" });
+    return;
+  }
+  if (typeof rawAmount !== "number" || !Number.isFinite(rawAmount) || rawAmount <= 0) {
+    res.status(400).json({ error: "bid_amount_usd must be a positive number" });
+    return;
+  }
+  const validSizes = ["S", "M", "L", "XL", "XXL"];
+  if (!rawSize || !validSizes.includes(rawSize)) {
+    res
+      .status(400)
+      .json({ error: "size must be one of S, M, L, XL, XXL" });
+    return;
+  }
+  // Round to 6 decimal places to match numeric(18,6)
+  const bidAmount = Math.round(rawAmount * 1_000_000) / 1_000_000;
+
+  try {
+    // Validate drop exists and bidding is open.
+    const { data: drop, error: dropErr } = await supabase
+      .from("drops")
+      .select("object_id, reservation_slots, bidding_closed, bidding_ends_at")
+      .eq("object_id", dropId)
+      .maybeSingle();
+    if (dropErr) {
+      res.status(500).json({ error: "Failed to load drop", details: dropErr.message });
+      return;
+    }
+    if (!drop) {
+      res.status(404).json({ error: "Drop not found" });
+      return;
+    }
+    const slots = Number((drop as { reservation_slots?: number }).reservation_slots ?? 0);
+    if (!slots || slots <= 0) {
+      res.status(400).json({ error: "This drop does not support reservations" });
+      return;
+    }
+    if ((drop as { bidding_closed?: boolean }).bidding_closed) {
+      res.status(400).json({ error: "Bidding is closed for this drop" });
+      return;
+    }
+    const endsAt = (drop as { bidding_ends_at?: string | null }).bidding_ends_at;
+    if (endsAt) {
+      const endTime = new Date(endsAt).getTime();
+      if (!Number.isNaN(endTime) && Date.now() > endTime) {
+        res.status(400).json({ error: "Bidding period has ended for this drop" });
+        return;
+      }
+    }
+
+    // Upsert reservation: one bid per (drop, address). If user bids again, overwrite amount & timestamp.
+    const { error: upsertErr } = await supabase.from("reservations").upsert(
+      {
+        drop_object_id: dropId,
+        evm_address: evmAddress,
+        bid_amount_usd: bidAmount,
+        status: "pending",
+        size_preference: rawSize,
+      },
+      { onConflict: "drop_object_id,evm_address" },
+    );
+    if (upsertErr) {
+      res.status(500).json({ error: "Failed to place bid", details: upsertErr.message });
+      return;
+    }
+
+    // Reload all bids to compute current rank for this address.
+    const { data: allBids, error: listErr } = await supabase
+      .from("reservations")
+      .select("evm_address, bid_amount_usd, created_at")
+      .eq("drop_object_id", dropId)
+      .order("bid_amount_usd", { ascending: false })
+      .order("created_at", { ascending: true });
+    if (listErr) {
+      res.status(500).json({ error: "Bid placed but failed to compute rank", details: listErr.message });
+      return;
+    }
+    let rank = null as number | null;
+    const bidsList = allBids ?? [];
+    for (let i = 0; i < bidsList.length; i++) {
+      const b = bidsList[i];
+      if ((b.evm_address as string).toLowerCase().trim() === evmAddress.toLowerCase()) {
+        rank = i + 1;
+        break;
+      }
+    }
+
+    res.json({
+      evm_address: evmAddress,
+      bid_amount_usd: bidAmount,
+      rank,
+      total_bids: bidsList.length,
+      reservation_slots: slots,
+    });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    res.status(500).json({ error: "Failed to place bid", details: message });
+  }
+}
+
+/**
+ * POST /admin/drops/:dropId/bids/close — admin-only: close bidding and mark winners/losers.
+ */
+export async function closeBidsHandler(req: Request, res: Response): Promise<void> {
+  const dropId = req.params.dropId;
+  if (!dropId?.trim()) {
+    res.status(400).json({ error: "dropId is required" });
+    return;
+  }
+  const supabase = getSupabase();
+  if (!supabase) {
+    res.status(503).json({ error: "Supabase not configured" });
+    return;
+  }
+
+  try {
+    const { data: drop, error: dropErr } = await supabase
+      .from("drops")
+      .select("object_id, reservation_slots, bidding_closed, reservation_evm_recipient")
+      .eq("object_id", dropId)
+      .maybeSingle();
+    if (dropErr) {
+      res.status(500).json({ error: "Failed to load drop", details: dropErr.message });
+      return;
+    }
+    if (!drop) {
+      res.status(404).json({ error: "Drop not found" });
+      return;
+    }
+    if ((drop as { bidding_closed?: boolean }).bidding_closed) {
+      res.status(400).json({ error: "Bidding already closed for this drop" });
+      return;
+    }
+    const slots = Number((drop as { reservation_slots?: number }).reservation_slots ?? 0);
+    if (!slots || slots <= 0) {
+      res.status(400).json({ error: "This drop does not support reservations" });
+      return;
+    }
+
+    // Load all bids for this drop.
+    const { data: bids, error: bidsErr } = await supabase
+      .from("reservations")
+      .select("id, evm_address, bid_amount_usd, created_at")
+      .eq("drop_object_id", dropId)
+      .order("bid_amount_usd", { ascending: false })
+      .order("created_at", { ascending: true });
+    if (bidsErr) {
+      res.status(500).json({ error: "Failed to load bids", details: bidsErr.message });
+      return;
+    }
+    const list = bids ?? [];
+    if (list.length === 0) {
+      // No bids; just mark bidding_closed.
+      const { error: updateDropErr } = await supabase
+        .from("drops")
+        .update({ bidding_closed: true, updated_at: new Date().toISOString() })
+        .eq("object_id", dropId);
+      if (updateDropErr) {
+        res.status(500).json({ error: "Failed to close bidding", details: updateDropErr.message });
+        return;
+      }
+      res.json({ winners: [], losers: [] });
+      return;
+    }
+
+    // Determine winners (top reservation_slots by amount/time).
+    const winners = list.slice(0, slots);
+    const losers = list.slice(slots);
+
+    // Settlement: Yellow channel close is done client-side by winners.
+    // Admin only updates DB here.
+
+    // Update reservations: set rank and status, settled_at (one update per row; upsert with partial rows can fail).
+    const nowIso = new Date().toISOString();
+    for (let idx = 0; idx < list.length; idx++) {
+      const b = list[idx];
+      const { error: updErr } = await supabase
+        .from("reservations")
+        .update({
+          rank: idx + 1,
+          status: winners.includes(b) ? "won" : "lost",
+          settled_at: nowIso,
+        })
+        .eq("id", b.id);
+      if (updErr) {
+        res.status(500).json({ error: "Failed to update reservations", details: updErr.message });
+        return;
+      }
+    }
+
+    // Mark drop as bidding_closed.
+    const { error: updateDropErr2 } = await supabase
+      .from("drops")
+      .update({ bidding_closed: true, updated_at: nowIso })
+      .eq("object_id", dropId);
+    if (updateDropErr2) {
+      res.status(500).json({ error: "Failed to close bidding", details: updateDropErr2.message });
+      return;
+    }
+
+    res.json({
+      winners: winners.map((w, idx) => ({
+        evm_address: w.evm_address,
+        bid_amount_usd: Number(w.bid_amount_usd),
+        rank: idx + 1,
+      })),
+      losers: losers.map((l) => ({
+        evm_address: l.evm_address,
+        bid_amount_usd: Number(l.bid_amount_usd),
+      })),
+    });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    res.status(500).json({ error: "Failed to close bidding", details: message });
+  }
+}
+
+/**
  * POST /admin/drops — create drop onchain, then insert into Supabase.
  * Body: name, company_name, event_name, total_supply, description?, release_date? (YYYY-MM-DD; offchain).
  */
@@ -173,6 +569,16 @@ export async function createDropHandler(req: Request, res: Response): Promise<vo
     total_supply?: number;
     description?: string;
     release_date?: string;
+    // Optional bidding / reservation config
+    reservation_slots?: number;
+    bidding_ends_at?: string;
+    reservation_evm_recipient?: string;
+    // Optional per-size inventory
+    size_s_total?: number;
+    size_m_total?: number;
+    size_l_total?: number;
+    size_xl_total?: number;
+    size_xxl_total?: number;
   };
   const name = body.name?.trim();
   const company_name = (body.company_name ?? "").trim();
@@ -193,6 +599,23 @@ export async function createDropHandler(req: Request, res: Response): Promise<vo
     res.status(400).json({ error: "total_supply must be a positive number" });
     return;
   }
+
+  // Optional bidding / reservation config
+  const reservation_slots = Number(body.reservation_slots ?? 0);
+  const biddingEndsRaw = body.bidding_ends_at?.trim();
+  const bidding_ends_at =
+    biddingEndsRaw && !Number.isNaN(Date.parse(biddingEndsRaw))
+      ? new Date(biddingEndsRaw).toISOString()
+      : null;
+  const reservation_evm_recipient =
+    body.reservation_evm_recipient?.trim() || null;
+
+  // Optional per-size inventory (informational)
+  const size_s_total = Number(body.size_s_total ?? 0);
+  const size_m_total = Number(body.size_m_total ?? 0);
+  const size_l_total = Number(body.size_l_total ?? 0);
+  const size_xl_total = Number(body.size_xl_total ?? 0);
+  const size_xxl_total = Number(body.size_xxl_total ?? 0);
 
   const client = new SuiClient({ url: config.rpcUrl });
   const keypair = loadSponsorKeypair();
@@ -270,6 +693,26 @@ export async function createDropHandler(req: Request, res: Response): Promise<vo
         created_at_ms: Date.now(),
         description: description || null,
         release_date: release_date,
+        // Bidding / reservations
+        reservation_slots:
+          Number.isNaN(reservation_slots) || reservation_slots < 0
+            ? 0
+            : reservation_slots,
+        bidding_ends_at,
+        reservation_evm_recipient,
+        // Size inventory
+        size_s_total:
+          Number.isNaN(size_s_total) || size_s_total < 0 ? 0 : size_s_total,
+        size_m_total:
+          Number.isNaN(size_m_total) || size_m_total < 0 ? 0 : size_m_total,
+        size_l_total:
+          Number.isNaN(size_l_total) || size_l_total < 0 ? 0 : size_l_total,
+        size_xl_total:
+          Number.isNaN(size_xl_total) || size_xl_total < 0 ? 0 : size_xl_total,
+        size_xxl_total:
+          Number.isNaN(size_xxl_total) || size_xxl_total < 0
+            ? 0
+            : size_xxl_total,
         offchain_attributes: {},
       });
       if (error) {

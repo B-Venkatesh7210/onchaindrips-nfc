@@ -20,9 +20,33 @@ export type DropRow = {
   created_at?: string;
   description?: string | null;
   release_date?: string | null;
+  /** Optional bidding / reservation config for this drop. */
+  reservation_slots?: number;
+  bidding_ends_at?: string | null;
+  reservation_evm_recipient?: string | null;
+  bidding_closed?: boolean;
+  // Optional per-size inventory for this drop.
+  size_s_total?: number;
+  size_m_total?: number;
+  size_l_total?: number;
+  size_xl_total?: number;
+  size_xxl_total?: number;
   offchain_attributes?: Record<string, unknown>;
   /** Walrus blob ID for the drop's NFT t-shirt image (from first shirt). */
   image_blob_id?: string | null;
+};
+
+export type DropBid = {
+  evm_address: string;
+  bid_amount_usd: number;
+  rank: number;
+  status: "pending" | "won" | "lost";
+  created_at: string;
+  size?: string | null;
+};
+
+export type DropBidsResponse = {
+  bids: DropBid[];
 };
 
 export async function fetchDrops(): Promise<DropRow[]> {
@@ -30,6 +54,60 @@ export async function fetchDrops(): Promise<DropRow[]> {
   if (!res.ok) return [];
   const data = await res.json();
   return Array.isArray(data) ? data : [];
+}
+
+/** Public: list bids for a drop. */
+export async function fetchDropBids(dropId: string): Promise<DropBidsResponse> {
+  const res = await fetch(
+    `${API_URL}/drops/${encodeURIComponent(dropId)}/bids`,
+  );
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: res.statusText }));
+    throw new Error(
+      (err as { error?: string }).error ?? "Failed to fetch bids",
+    );
+  }
+  return res.json() as Promise<DropBidsResponse>;
+}
+
+/** Public: place or update a bid for a drop. */
+export async function placeDropBid(
+  dropId: string,
+  evmAddress: string,
+  bidAmountUsd: number,
+  size: "S" | "M" | "L" | "XL" | "XXL",
+): Promise<{
+  evm_address: string;
+  bid_amount_usd: number;
+  rank: number | null;
+  total_bids: number;
+  reservation_slots: number;
+}> {
+  const res = await fetch(
+    `${API_URL}/drops/${encodeURIComponent(dropId)}/bids`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        evm_address: evmAddress,
+        bid_amount_usd: bidAmountUsd,
+        size,
+      }),
+    },
+  );
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: res.statusText }));
+    throw new Error(
+      (err as { error?: string }).error ?? "Failed to place bid",
+    );
+  }
+  return res.json() as Promise<{
+    evm_address: string;
+    bid_amount_usd: number;
+    rank: number | null;
+    total_bids: number;
+    reservation_slots: number;
+  }>;
 }
 
 /** Resolve claim URL token to shirt object ID (for /{dropId}/{token} NFC URLs). */
@@ -57,6 +135,14 @@ export async function adminCreateDrop(
     total_supply: number;
     description?: string;
     release_date?: string;
+    reservation_slots?: number;
+    bidding_ends_at?: string;
+    reservation_evm_recipient?: string;
+    size_s_total?: number;
+    size_m_total?: number;
+    size_l_total?: number;
+    size_xl_total?: number;
+    size_xxl_total?: number;
   }
 ): Promise<{ dropObjectId: string; digest: string }> {
   const res = await fetch(`${API_URL}/admin/drops`, {
@@ -69,6 +155,84 @@ export async function adminCreateDrop(
     throw new Error((err as { error?: string }).error ?? "Failed to create drop");
   }
   return res.json();
+}
+
+/** Admin: close bidding for a drop (after Yellow settlement). */
+export async function adminCloseDropBids(
+  adminAddress: string,
+  dropId: string,
+): Promise<{
+  winners: { evm_address: string; bid_amount_usd: number; rank: number }[];
+  losers: { evm_address: string; bid_amount_usd: number }[];
+}> {
+  const res = await fetch(
+    `${API_URL}/admin/drops/${encodeURIComponent(dropId)}/bids/close`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Admin-Address": adminAddress,
+      },
+    },
+  );
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: res.statusText }));
+    throw new Error(
+      (err as { error?: string }).error ?? "Failed to close bids",
+    );
+  }
+  return res.json() as Promise<{
+    winners: {
+      evm_address: string;
+      bid_amount_usd: number;
+      rank: number;
+    }[];
+    losers: { evm_address: string; bid_amount_usd: number }[];
+  }>;
+}
+
+/** Admin: preview winners/losers and totals before closing bids. */
+export async function adminFetchDropBidSummary(
+  adminAddress: string,
+  dropId: string,
+): Promise<{
+  drop: {
+    object_id: string;
+    name: string;
+    reservation_slots: number;
+    reservation_evm_recipient: string | null;
+    bidding_closed?: boolean;
+    bidding_ends_at?: string | null;
+  };
+  winners: { evm_address: string; bid_amount_usd: number; rank: number }[];
+  losers: { evm_address: string; bid_amount_usd: number }[];
+}> {
+  const res = await fetch(
+    `${API_URL}/admin/drops/${encodeURIComponent(dropId)}/bids/summary`,
+    {
+      headers: {
+        "X-Admin-Address": adminAddress,
+      },
+    },
+  );
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: res.statusText }));
+    throw new Error(
+      (err as { error?: string }).error ?? "Failed to load bid summary",
+    );
+  }
+  return res.json() as Promise<{
+    drop: {
+      object_id: string;
+      name: string;
+      reservation_slots: number;
+      reservation_evm_recipient: string | null;
+      bidding_closed?: boolean;
+      bidding_ends_at?: string | null;
+    };
+    winners: { evm_address: string; bid_amount_usd: number; rank: number }[];
+    losers: { evm_address: string; bid_amount_usd: number }[];
+  }>;
 }
 
 /** Admin: mint shirts (onchain + Supabase). Send X-Admin-Address. */

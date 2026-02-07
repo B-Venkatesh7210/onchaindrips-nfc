@@ -9,6 +9,7 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@erc7824/nitrolite": "^0.5.3",
     "@mysten/sui": "^1.45.2",
     "@mysten/zklogin": "^0.7.7",
     "axios": "^1.7.9",

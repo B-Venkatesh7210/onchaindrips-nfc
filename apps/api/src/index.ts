@@ -26,7 +26,12 @@ import {
   mintShirtsHandler,
   backfillShirtsHandler,
   resolveClaimTokenHandler,
+  getDropBidsHandler,
+  placeBidHandler,
+  closeBidsHandler,
+  getDropBidsSummaryHandler,
 } from "./routes/admin.js";
+import { faucetHandler } from "./routes/yellow.js";
 
 const app = express();
 const client = new SuiClient({ url: config.rpcUrl });
@@ -66,12 +71,20 @@ app.get("/walrus/:blobId", walrusFetchHandler);
 app.get("/drops", listDropsHandler);
 // Public: resolve claim URL token to shirtObjectId (for /{dropId}/{token} NFC URLs). Token via query ?token= or path.
 app.get("/drops/:dropId/resolve", resolveClaimTokenHandler);
+// Public: bids for a drop (bidding / reservations)
+app.get("/drops/:dropId/bids", getDropBidsHandler);
+app.post("/drops/:dropId/bids", placeBidHandler);
+
+// Yellow sandbox: faucet proxy (avoids CORS)
+app.post("/yellow/faucet", faucetHandler);
 
 // Admin-only (X-Admin-Address header must match ADMIN_ADDRESS)
 app.get("/admin/drops", adminMiddleware, listDropsHandler);
 app.post("/admin/drops", adminMiddleware, createDropHandler);
 app.post("/admin/drops/:dropObjectId/mint", adminMiddleware, mintShirtsHandler);
 app.post("/admin/drops/:dropObjectId/backfill-shirts", adminMiddleware, backfillShirtsHandler);
+app.get("/admin/drops/:dropId/bids/summary", adminMiddleware, getDropBidsSummaryHandler);
+app.post("/admin/drops/:dropId/bids/close", adminMiddleware, closeBidsHandler);
 
 // 404
 app.use((_req: Request, res: Response) => {

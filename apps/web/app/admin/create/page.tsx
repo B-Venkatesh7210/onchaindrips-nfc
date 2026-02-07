@@ -74,6 +74,15 @@ export default function AdminCreateDropPage() {
   const [dropTotalSupply, setDropTotalSupply] = useState("");
   const [dropDescription, setDropDescription] = useState("");
   const [dropReleaseDate, setDropReleaseDate] = useState("");
+  const [dropReservationSlots, setDropReservationSlots] = useState("");
+  const [dropBiddingEndsAt, setDropBiddingEndsAt] = useState("");
+  const [dropReservationEvmRecipient, setDropReservationEvmRecipient] =
+    useState("");
+  const [dropSizeS, setDropSizeS] = useState("");
+  const [dropSizeM, setDropSizeM] = useState("");
+  const [dropSizeL, setDropSizeL] = useState("");
+  const [dropSizeXL, setDropSizeXL] = useState("");
+  const [dropSizeXXL, setDropSizeXXL] = useState("");
   const [dropCreating, setDropCreating] = useState(false);
   const [dropError, setDropError] = useState<string | null>(null);
   const [createdDropId, setCreatedDropId] = useState<string | null>(null);
@@ -189,6 +198,23 @@ export default function AdminCreateDropPage() {
           /^\d{4}-\d{2}-\d{2}$/.test(dropReleaseDate.trim())
             ? dropReleaseDate.trim()
             : undefined,
+        // Optional bidding / reservation config
+        reservation_slots:
+          Number(dropReservationSlots || "0") > 0
+            ? Number(dropReservationSlots || "0")
+            : 0,
+        bidding_ends_at:
+          dropBiddingEndsAt.trim() && !Number.isNaN(Date.parse(dropBiddingEndsAt))
+            ? new Date(dropBiddingEndsAt).toISOString()
+            : undefined,
+        reservation_evm_recipient:
+          dropReservationEvmRecipient.trim() || undefined,
+        // Optional per-size inventory
+        size_s_total: Number(dropSizeS || "0") || 0,
+        size_m_total: Number(dropSizeM || "0") || 0,
+        size_l_total: Number(dropSizeL || "0") || 0,
+        size_xl_total: Number(dropSizeXL || "0") || 0,
+        size_xxl_total: Number(dropSizeXXL || "0") || 0,
       });
       setCreatedDropId(res.dropObjectId);
     } catch (e) {
@@ -499,6 +525,126 @@ export default function AdminCreateDropPage() {
               onChange={(e) => setDropReleaseDate(e.target.value)}
               className="mt-1 w-full rounded border border-neutral-200 px-3 py-2 text-sm"
             />
+          </div>
+        </div>
+        <div className="mt-4 space-y-3">
+          <div>
+            <h3 className="text-sm font-semibold text-neutral-800">
+              Bidding / reservations (optional)
+            </h3>
+            <p className="mt-1 text-xs text-neutral-500">
+              Configure how many shirts can be pre-reserved via bidding and when
+              bidding ends.
+            </p>
+            <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div>
+                <label className="mb-1 block text-xs font-medium text-neutral-700">
+                  Reservation slots
+                </label>
+                <input
+                  type="number"
+                  min={0}
+                  value={dropReservationSlots}
+                  onChange={(e) => setDropReservationSlots(e.target.value)}
+                  className="w-full rounded border border-neutral-200 px-3 py-2 text-sm"
+                  placeholder="0 (disable bidding)"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium text-neutral-700">
+                  Bidding ends at
+                </label>
+                <input
+                  type="datetime-local"
+                  value={dropBiddingEndsAt}
+                  onChange={(e) => setDropBiddingEndsAt(e.target.value)}
+                  className="w-full rounded border border-neutral-200 px-3 py-2 text-sm"
+                />
+              </div>
+            </div>
+            <div className="mt-3">
+              <label className="mb-1 block text-xs font-medium text-neutral-700">
+                Reservation EVM recipient (organizer wallet)
+              </label>
+              <input
+                type="text"
+                value={dropReservationEvmRecipient}
+                onChange={(e) => setDropReservationEvmRecipient(e.target.value)}
+                className="w-full rounded border border-neutral-200 px-3 py-2 text-sm"
+                placeholder="0x..."
+              />
+            </div>
+          </div>
+
+          <div className="pt-2">
+            <h3 className="text-sm font-semibold text-neutral-800">
+              Size inventory (optional)
+            </h3>
+            <p className="mt-1 text-xs text-neutral-500">
+              Specify how many shirts are available in each size for this drop.
+            </p>
+            <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-5">
+              <div>
+                <label className="mb-1 block text-xs font-medium text-neutral-700">
+                  S
+                </label>
+                <input
+                  type="number"
+                  min={0}
+                  value={dropSizeS}
+                  onChange={(e) => setDropSizeS(e.target.value)}
+                  className="w-full rounded border border-neutral-200 px-2 py-1.5 text-xs"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium text-neutral-700">
+                  M
+                </label>
+                <input
+                  type="number"
+                  min={0}
+                  value={dropSizeM}
+                  onChange={(e) => setDropSizeM(e.target.value)}
+                  className="w-full rounded border border-neutral-200 px-2 py-1.5 text-xs"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium text-neutral-700">
+                  L
+                </label>
+                <input
+                  type="number"
+                  min={0}
+                  value={dropSizeL}
+                  onChange={(e) => setDropSizeL(e.target.value)}
+                  className="w-full rounded border border-neutral-200 px-2 py-1.5 text-xs"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium text-neutral-700">
+                  XL
+                </label>
+                <input
+                  type="number"
+                  min={0}
+                  value={dropSizeXL}
+                  onChange={(e) => setDropSizeXL(e.target.value)}
+                  className="w-full rounded border border-neutral-200 px-2 py-1.5 text-xs"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium text-neutral-700">
+                  XXL
+                </label>
+                <input
+                  type="number"
+                  min={0}
+                  value={dropSizeXXL}
+                  onChange={(e) => setDropSizeXXL(e.target.value)}
+                  className="w-full rounded border border-neutral-200 px-2 py-1.5 text-xs"
+                />
+              </div>
+            </div>
           </div>
         </div>
         <div className="mt-3">
