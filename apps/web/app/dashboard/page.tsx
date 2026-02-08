@@ -91,7 +91,7 @@ function ShirtCard({
         ) : null}
         <div className="mt-2 flex items-center justify-between">
           <span className="rounded-full bg-red-600/20 px-2 py-0.5 text-xs font-medium text-red-400">
-            Serial #{shirt.serial ?? "?"}
+            Serial #{shirt.serial != null ? shirt.serial + 1 : "?"}
           </span>
           {!shirt.isMinted && (
             <span className="text-xs font-medium text-amber-400">Unminted</span>
@@ -164,6 +164,7 @@ export default function DashboardPage() {
       }
       cursor = page.hasNextPage ? (page.nextCursor ?? undefined) : undefined;
     } while (cursor);
+    items.sort((a, b) => b.objectId.localeCompare(a.objectId));
     setShirts(items);
   }, []);
 

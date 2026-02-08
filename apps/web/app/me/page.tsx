@@ -137,7 +137,7 @@ export default function MePage() {
                   href={`/${s.dropId}/${s.objectId}`}
                   className="block bg-white rounded-lg border border-neutral-200 p-4 shadow-sm hover:border-neutral-300"
                 >
-                  <span className="font-medium text-neutral-800">Shirt #{s.serial ?? "?"}</span>
+                  <span className="font-medium text-neutral-800">Shirt #{s.serial != null ? s.serial + 1 : "?"}</span>
                   <span className="text-neutral-500 text-sm ml-2">
                     {s.isMinted ? "Minted" : "Unminted"}
                   </span>

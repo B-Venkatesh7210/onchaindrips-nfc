@@ -46,6 +46,95 @@ function isOwner(
   return normalizeAddress(userAddress) === normalizeAddress(shirtOwner);
 }
 
+const SOCIAL_PREFIXES = {
+  telegram: "https://t.me/",
+  twitter: "https://x.com/",
+  github: "https://github.com/",
+} as const;
+
+const SOCIAL_LINK_KEYS = ["website", "telegram", "twitter", "github", "email"] as const;
+
+function getSocialLinkUrl(key: string, value: string | undefined): string | null {
+  const v = (value ?? "").trim();
+  if (!v) return null;
+  switch (key) {
+    case "website":
+      return v.startsWith("http") ? v : `https://${v}`;
+    case "telegram":
+      return v.startsWith("http") ? v : `${SOCIAL_PREFIXES.telegram}${v.replace(/^@/, "")}`;
+    case "twitter":
+      return v.startsWith("http") ? v : `${SOCIAL_PREFIXES.twitter}${v.replace(/^@/, "")}`;
+    case "github":
+      return v.startsWith("http") ? v : `${SOCIAL_PREFIXES.github}${v.replace(/^@/, "")}`;
+    case "email":
+      return v.startsWith("mailto:") ? v : `mailto:${v}`;
+    default:
+      return null;
+  }
+}
+
+function SocialLinkIcon({
+  type,
+  className = "h-5 w-5",
+}: {
+  type: string;
+  className?: string;
+}) {
+  switch (type) {
+    case "telegram":
+      return (
+        <svg className={className} viewBox="0 0 24 24" fill="currentColor">
+          <path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z" />
+        </svg>
+      );
+    case "twitter":
+      return (
+        <svg className={className} viewBox="0 0 24 24" fill="currentColor">
+          <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+        </svg>
+      );
+    case "github":
+      return (
+        <svg className={className} viewBox="0 0 24 24" fill="currentColor">
+          <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z" />
+        </svg>
+      );
+    case "website":
+      return (
+        <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" />
+        </svg>
+      );
+    case "email":
+      return (
+        <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+        </svg>
+      );
+    default:
+      return null;
+  }
+}
+
+function extractSocialUsername(
+  value: string | undefined,
+  prefix: string
+): string {
+  if (!value?.trim()) return "";
+  const v = value.trim().replace(/^@/, "");
+  if (v.startsWith(prefix)) return v.slice(prefix.length).replace(/\/$/, "");
+  const patterns = [
+    /^https?:\/\/t\.me\/(.+)/i,
+    /^https?:\/\/(www\.)?(twitter|x)\.com\/(.+)/i,
+    /^https?:\/\/(www\.)?github\.com\/(.+)/i,
+  ];
+  for (const re of patterns) {
+    const m = v.match(re);
+    if (m) return (m[1] ?? m[3] ?? "").replace(/\/$/, "");
+  }
+  return v;
+}
+
 const SUI_EXPLORER_BASE =
   typeof process !== "undefined" && process.env.NEXT_PUBLIC_SUI_EXPLORER_URL
     ? process.env.NEXT_PUBLIC_SUI_EXPLORER_URL
@@ -212,7 +301,14 @@ export default function ShirtPageContent({
       const flat: Record<string, string> = {};
       for (const [k, v] of Object.entries(profile.fields)) {
         if (v == null) continue;
-        flat[k] = String(v);
+        const str = String(v);
+        if (k === "telegram")
+          flat[k] = extractSocialUsername(str, SOCIAL_PREFIXES.telegram);
+        else if (k === "twitter")
+          flat[k] = extractSocialUsername(str, SOCIAL_PREFIXES.twitter);
+        else if (k === "github")
+          flat[k] = extractSocialUsername(str, SOCIAL_PREFIXES.github);
+        else flat[k] = str;
       }
       setProfileDraft(flat);
     } else if (Object.keys(profileDraft).length === 0) {
@@ -266,9 +362,16 @@ export default function ShirtPageContent({
     setProfileError(null);
     setProfileLoading(true);
     try {
+      const draftWithFullUrls = { ...profileDraft };
+      const uname = (draftWithFullUrls.telegram ?? "").trim();
+      if (uname) draftWithFullUrls.telegram = SOCIAL_PREFIXES.telegram + uname;
+      const tuname = (draftWithFullUrls.twitter ?? "").trim();
+      if (tuname) draftWithFullUrls.twitter = SOCIAL_PREFIXES.twitter + tuname;
+      const guname = (draftWithFullUrls.github ?? "").trim();
+      if (guname) draftWithFullUrls.github = SOCIAL_PREFIXES.github + guname;
       const nextProfile: ShirtProfile = {
         ...(profile ?? {}),
-        fields: { ...(profile?.fields ?? {}), ...profileDraft },
+        fields: { ...(profile?.fields ?? {}), ...draftWithFullUrls },
       };
       // Once user saves via the UI, treat the profile as editable even if it was
       // originally populated from ENS.
@@ -309,10 +412,20 @@ export default function ShirtPageContent({
         fieldsFromEns.description = records["description"];
       if (records["url"]) fieldsFromEns.website = records["url"];
       if (records["com.twitter"])
-        fieldsFromEns.twitter = records["com.twitter"];
+        fieldsFromEns.twitter = extractSocialUsername(
+          records["com.twitter"],
+          SOCIAL_PREFIXES.twitter
+        );
       if (records["com.telegram"])
-        fieldsFromEns.telegram = records["com.telegram"];
-      if (records["com.github"]) fieldsFromEns.github = records["com.github"];
+        fieldsFromEns.telegram = extractSocialUsername(
+          records["com.telegram"],
+          SOCIAL_PREFIXES.telegram
+        );
+      if (records["com.github"])
+        fieldsFromEns.github = extractSocialUsername(
+          records["com.github"],
+          SOCIAL_PREFIXES.github
+        );
       if (records["email"]) fieldsFromEns.email = records["email"];
       // Any ENS key not in the list above becomes an extra field (so nothing is dropped)
       const mappedKeys = [
@@ -395,30 +508,34 @@ export default function ShirtPageContent({
     return null;
   };
   const ensNameForAvatar =
-    profile?.ens_name ?? profileDraft.name ?? (profile?.fields?.name as string | undefined);
-  const displayAvatarUrl =
-    getDisplayableAvatarUrl(
-      profileDraft.avatar ?? (profile?.fields?.avatar as string | undefined),
-      ensNameForAvatar
-    );
-  const shirtCarouselSlides = (): import("@/app/components/ImageCarousel").CarouselSlide[] => {
-    if (drop) {
-      const nft = drop.image_blob_id?.trim();
-      const u1 = drop.uploaded_image_1?.trim();
-      const u2 = drop.uploaded_image_2?.trim();
-      const slide1 = nft
-        ? u1
-          ? { primary: toImageUrl(nft), fallback: toImageUrl(u1) }
-          : toImageUrl(nft)
-        : u1
+    profile?.ens_name ??
+    profileDraft.name ??
+    (profile?.fields?.name as string | undefined);
+  const displayAvatarUrl = getDisplayableAvatarUrl(
+    profileDraft.avatar ?? (profile?.fields?.avatar as string | undefined),
+    ensNameForAvatar
+  );
+  const shirtCarouselSlides =
+    (): import("@/app/components/ImageCarousel").CarouselSlide[] => {
+      if (drop) {
+        const nft = drop.image_blob_id?.trim();
+        const u1 = drop.uploaded_image_1?.trim();
+        const u2 = drop.uploaded_image_2?.trim();
+        const slide1 = nft
+          ? u1
+            ? { primary: toImageUrl(nft), fallback: toImageUrl(u1) }
+            : toImageUrl(nft)
+          : u1
           ? toImageUrl(u1)
           : null;
-      const slide2 = u2 ? toImageUrl(u2) : null;
-      return [slide1, slide2].filter(Boolean) as import("@/app/components/ImageCarousel").CarouselSlide[];
-    }
-    const nft = walrusBlobIdToString(shirt.walrus_blob_id_image);
-    return nft ? [toImageUrl(nft)] : [];
-  };
+        const slide2 = u2 ? toImageUrl(u2) : null;
+        return [slide1, slide2].filter(
+          Boolean
+        ) as import("@/app/components/ImageCarousel").CarouselSlide[];
+      }
+      const nft = walrusBlobIdToString(shirt.walrus_blob_id_image);
+      return nft ? [toImageUrl(nft)] : [];
+    };
   const totalSupply = drop ? Number(drop.total_supply ?? 0) : 0;
   const mintedCount = drop ? Number(drop.minted_count ?? 0) : 0;
   const remaining = Math.max(0, totalSupply - mintedCount);
@@ -473,7 +590,7 @@ export default function ShirtPageContent({
           <div className="bg-black border border-red-600/40 border-t-0 rounded-b-xl px-6 py-4">
             <div className="flex flex-wrap items-center gap-3">
               <span className="rounded-full bg-red-600/20 px-3 py-1 text-xs font-medium text-red-400">
-                Serial #{shirt.serial ?? "—"}
+                Serial #{shirt.serial != null ? shirt.serial + 1 : "—"}
               </span>
               {totalSupply > 0 && (
                 <span className="text-sm text-white/70">
@@ -639,30 +756,54 @@ export default function ShirtPageContent({
                       </button>
                     </div>
                     <div className="grid gap-4 sm:grid-cols-2">
-                      {[
-                        ["name", "Name"],
-                        ["company", "Company"],
-                        ["role", "Role"],
-                        ["telegram", "Telegram"],
-                        ["twitter", "Twitter"],
-                        ["email", "Email"],
-                        ["website", "Website"],
-                        ["github", "GitHub"],
-                      ].map(([key, label]) => (
-                        <div key={key}>
-                          <label className="mb-1 block text-sm font-medium text-white/70">
-                            {label}
-                          </label>
-                          <input
-                            type="text"
-                            value={profileDraft[key] ?? ""}
-                            onChange={(e) =>
-                              handleProfileFieldChange(key, e.target.value)
-                            }
-                            className="w-full rounded-lg border border-white/20 bg-black/40 px-3 py-2.5 text-sm text-white placeholder-white/40 focus:border-red-500/50 focus:outline-none focus:ring-1 focus:ring-red-500/50"
-                          />
-                        </div>
-                      ))}
+                      {(
+                        [
+                          ["name", "Name", null],
+                          ["company", "Company", null],
+                          ["role", "Role", null],
+                          ["website", "Website", null],
+                          ["telegram", "Telegram", SOCIAL_PREFIXES.telegram],
+                          ["twitter", "Twitter", SOCIAL_PREFIXES.twitter],
+                          ["github", "GitHub", SOCIAL_PREFIXES.github],
+                          ["email", "Email", null],
+                        ] as [string, string, string | null][]
+                      ).map(([key, label, prefix]) =>
+                        prefix ? (
+                          <div key={key}>
+                            <label className="mb-1 block text-sm font-medium text-white/70">
+                              {label}
+                            </label>
+                            <div className="flex rounded-lg border border-white/20 bg-black/40 overflow-hidden">
+                              <span className="flex shrink-0 items-center rounded-l-lg border-r border-white/20 bg-white/5 px-3 py-2.5 text-sm text-white/60">
+                                {prefix}
+                              </span>
+                              <input
+                                type="text"
+                                value={profileDraft[key] ?? ""}
+                                onChange={(e) =>
+                                  handleProfileFieldChange(key, e.target.value)
+                                }
+                                placeholder="username"
+                                className="flex-1 min-w-0 rounded-r-lg border-0 bg-transparent px-3 py-2.5 text-sm text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-red-500/50"
+                              />
+                            </div>
+                          </div>
+                        ) : (
+                          <div key={key}>
+                            <label className="mb-1 block text-sm font-medium text-white/70">
+                              {label}
+                            </label>
+                            <input
+                              type="text"
+                              value={profileDraft[key] ?? ""}
+                              onChange={(e) =>
+                                handleProfileFieldChange(key, e.target.value)
+                              }
+                              className="w-full rounded-lg border border-white/20 bg-black/40 px-3 py-2.5 text-sm text-white placeholder-white/40 focus:border-red-500/50 focus:outline-none focus:ring-1 focus:ring-red-500/50"
+                            />
+                          </div>
+                        )
+                      )}
                     </div>
                     <div>
                       <label className="mb-1 block text-sm font-medium text-white/70">
@@ -713,7 +854,10 @@ export default function ShirtPageContent({
                                   type="text"
                                   value={value ?? ""}
                                   onChange={(e) =>
-                                    handleProfileFieldChange(key, e.target.value)
+                                    handleProfileFieldChange(
+                                      key,
+                                      e.target.value
+                                    )
                                   }
                                   className="w-full rounded-lg border border-white/20 bg-black/40 px-3 py-2.5 text-sm text-white placeholder-white/40 focus:border-red-500/50 focus:outline-none"
                                 />
@@ -751,7 +895,8 @@ export default function ShirtPageContent({
                     {(() => {
                       const ownerAvatarUrl = getDisplayableAvatarUrl(
                         profile.fields?.avatar as string | undefined,
-                        profile.ens_name ?? (profile.fields?.name as string | undefined)
+                        profile.ens_name ??
+                          (profile.fields?.name as string | undefined)
                       );
                       return ownerAvatarUrl ? (
                         <div className="mb-6 flex justify-center">
@@ -767,36 +912,53 @@ export default function ShirtPageContent({
                         </div>
                       ) : null;
                     })()}
+                    {profile.fields &&
+                    SOCIAL_LINK_KEYS.some((k) => {
+                      const v = profile.fields?.[k as keyof typeof profile.fields] as string | undefined;
+                      return getSocialLinkUrl(k, v);
+                    }) && (
+                      <div className="mb-6 flex flex-wrap gap-3">
+                        {SOCIAL_LINK_KEYS.map((k) => {
+                          const v = profile.fields?.[k as keyof typeof profile.fields] as string | undefined;
+                          const url = getSocialLinkUrl(k, v);
+                          if (!url) return null;
+                          return (
+                            <a
+                              key={k}
+                              href={url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              title={k.charAt(0).toUpperCase() + k.slice(1)}
+                              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-white/20 bg-white/5 text-white/80 transition hover:border-red-500/50 hover:bg-white/10 hover:text-white"
+                            >
+                              <SocialLinkIcon type={k} />
+                            </a>
+                          );
+                        })}
+                      </div>
+                    )}
                     <dl className="space-y-3 text-sm">
                       {Object.entries(profile.fields).map(([key, value]) => {
-                        if (key === "avatar" || value == null || value === "")
+                        if (
+                          key === "avatar" ||
+                          (SOCIAL_LINK_KEYS as readonly string[]).includes(key) ||
+                          value == null ||
+                          value === ""
+                        )
                           return null;
                         const label =
                           key.charAt(0).toUpperCase() +
                           key.slice(1).replace(/^Ens:/, "");
                         return (
-                          <div key={key} className="flex gap-3 border-b border-white/10 pb-3 last:border-0 last:pb-0">
+                          <div
+                            key={key}
+                            className="flex gap-3 border-b border-white/10 pb-3 last:border-0 last:pb-0"
+                          >
                             <dt className="w-24 shrink-0 text-white/60">
                               {label}
                             </dt>
                             <dd className="flex-1 break-words text-white/90">
-                              {key === "website" &&
-                              typeof value === "string" ? (
-                                <a
-                                  href={
-                                    value.startsWith("http")
-                                      ? value
-                                      : `https://${value}`
-                                  }
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="underline hover:text-white"
-                                >
-                                  {value}
-                                </a>
-                              ) : (
-                                String(value)
-                              )}
+                              {String(value)}
                             </dd>
                           </div>
                         );
@@ -805,7 +967,8 @@ export default function ShirtPageContent({
                   </>
                 ) : (
                   <p className="text-sm text-white/50">
-                    No details added yet. Click &quot;Add details&quot; to add your name, avatar, and links.
+                    No details added yet. Click &quot;Add details&quot; to add
+                    your name, avatar, and links.
                   </p>
                 )}
               </div>
@@ -823,7 +986,8 @@ export default function ShirtPageContent({
                   {(() => {
                     const ownerAvatarUrl = getDisplayableAvatarUrl(
                       profile.fields?.avatar as string | undefined,
-                      profile.ens_name ?? (profile.fields?.name as string | undefined)
+                      profile.ens_name ??
+                        (profile.fields?.name as string | undefined)
                     );
                     return ownerAvatarUrl ? (
                       <div className="mb-6 flex justify-center">
@@ -839,36 +1003,53 @@ export default function ShirtPageContent({
                       </div>
                     ) : null;
                   })()}
+                  {profile.fields &&
+                  SOCIAL_LINK_KEYS.some((k) => {
+                    const v = profile.fields?.[k as keyof typeof profile.fields] as string | undefined;
+                    return getSocialLinkUrl(k, v);
+                  }) && (
+                    <div className="mb-6 flex flex-wrap gap-3">
+                      {SOCIAL_LINK_KEYS.map((k) => {
+                        const v = profile.fields?.[k as keyof typeof profile.fields] as string | undefined;
+                        const url = getSocialLinkUrl(k, v);
+                        if (!url) return null;
+                        return (
+                          <a
+                            key={k}
+                            href={url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            title={k.charAt(0).toUpperCase() + k.slice(1)}
+                            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-white/20 bg-white/5 text-white/80 transition hover:border-red-500/50 hover:bg-white/10 hover:text-white"
+                          >
+                            <SocialLinkIcon type={k} />
+                          </a>
+                        );
+                      })}
+                    </div>
+                  )}
                   <dl className="space-y-3 text-sm">
                     {Object.entries(profile.fields).map(([key, value]) => {
-                      if (key === "avatar" || value == null || value === "")
+                      if (
+                        key === "avatar" ||
+                        (SOCIAL_LINK_KEYS as readonly string[]).includes(key) ||
+                        value == null ||
+                        value === ""
+                      )
                         return null;
                       const label =
                         key.charAt(0).toUpperCase() +
                         key.slice(1).replace(/^Ens:/, "");
-                      const strVal = String(value);
                       return (
-                        <div key={key} className="flex gap-3 border-b border-white/10 pb-3 last:border-0 last:pb-0">
+                        <div
+                          key={key}
+                          className="flex gap-3 border-b border-white/10 pb-3 last:border-0 last:pb-0"
+                        >
                           <dt className="w-24 shrink-0 text-white/60">
                             {label}
                           </dt>
                           <dd className="flex-1 break-words text-white/90">
-                            {key === "website" && typeof value === "string" ? (
-                              <a
-                                href={
-                                  strVal.startsWith("http")
-                                    ? strVal
-                                    : `https://${strVal}`
-                                }
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="underline hover:text-white"
-                              >
-                                {strVal}
-                              </a>
-                            ) : (
-                              strVal
-                            )}
+                            {String(value)}
                           </dd>
                         </div>
                       );
