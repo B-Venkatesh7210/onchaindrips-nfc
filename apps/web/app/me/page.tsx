@@ -65,7 +65,7 @@ export default function MePage() {
           isMinted,
         });
       }
-      cursor = page.hasNextPage ? page.nextCursor : undefined;
+      cursor = page.hasNextPage ? (page.nextCursor ?? undefined) : undefined;
     } while (cursor);
     setShirts(items);
   }, []);
