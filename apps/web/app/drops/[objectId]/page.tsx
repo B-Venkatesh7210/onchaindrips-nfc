@@ -466,7 +466,7 @@ export default function DropDetailPage() {
             "description" in drop.offchain_attributes
               ? (drop.offchain_attributes as { description?: string }).description
               : null)) && (
-            <p className="mt-4 text-white/60 text-sm">
+            <p className="mt-4 text-white/60 text-sm whitespace-pre-wrap">
               {String(
                 drop.description ??
                   (

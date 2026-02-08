@@ -781,16 +781,39 @@ export async function mintShirtsHandler(req: Request, res: Response): Promise<vo
   const keypair = loadSponsorKeypair();
   const sender = keypair.toSuiAddress();
 
+  // Fetch drop from chain to get total_supply and next_serial (required for EExceedsTotalSupply validation)
+  const dropObj = await client.getObject({ id: normalizedDropId, options: { showContent: true } });
+  if (!dropObj.data?.content) {
+    res.status(404).json({ error: "Drop not found", details: "Drop object does not exist or is not accessible." });
+    return;
+  }
+  const content = dropObj.data.content;
+  const fields = typeof content === "object" && content !== null && "fields" in content ? (content as { fields?: Record<string, unknown> }).fields : undefined;
+  const totalSupply = typeof fields?.total_supply === "string" ? Number(fields.total_supply) : Number(fields?.total_supply ?? NaN);
+  const nextSerial = typeof fields?.next_serial === "string" ? Number(fields.next_serial) : Number(fields?.next_serial ?? 0);
+
   if (Number.isNaN(count) || count < 1) {
-    const dropObj = await client.getObject({ id: normalizedDropId, options: { showContent: true } });
-    const content = dropObj.data?.content;
-    const fields = content && typeof content === "object" && "fields" in content ? (content as { fields?: Record<string, unknown> }).fields : undefined;
-    const totalSupply = typeof fields?.total_supply === "string" ? Number(fields.total_supply) : Number(fields?.total_supply);
     if (Number.isNaN(totalSupply) || totalSupply < 1) {
       res.status(400).json({ error: "count is required or drop has no total_supply" });
       return;
     }
     count = totalSupply;
+  }
+
+  const available = Math.max(0, totalSupply - nextSerial);
+  if (available < 1) {
+    res.status(400).json({
+      error: "Nothing left to mint",
+      details: `Drop has total_supply=${totalSupply}, next_serial=${nextSerial}. All shirts already minted.`,
+    });
+    return;
+  }
+  if (count > available) {
+    res.status(400).json({
+      error: "Mint count exceeds available supply",
+      details: `Requested ${count} shirts, but only ${available} remain (total_supply=${totalSupply}, next_serial=${nextSerial}).`,
+    });
+    return;
   }
 
   const imageBytes = blobIdStringToBytes(walrusBlobIdImage);
@@ -799,6 +822,9 @@ export async function mintShirtsHandler(req: Request, res: Response): Promise<vo
     res.status(400).json({ error: "walrusBlobIdImage and walrusBlobIdMetadata must be valid base64url or hex" });
     return;
   }
+
+  // Sui limits transaction inputs/outputs; mint in batches of 50 to avoid "Input exceeds limit of 50"
+  const MINT_BATCH_SIZE = 50;
 
   try {
     const coins = await client.getCoins({
@@ -810,65 +836,91 @@ export async function mintShirtsHandler(req: Request, res: Response): Promise<vo
       return;
     }
 
-    const tx = new Transaction();
-    tx.moveCall({
-      target: `${PACKAGE_ID}::onchaindrips::mint_shirts`,
-      arguments: [
-        tx.object(adminCapId),
-        tx.object(normalizedDropId),
-        tx.pure.u64(BigInt(count)),
-        tx.pure.vector("u8", imageBytes),
-        tx.pure.vector("u8", metadataBytes),
-      ],
-    });
-    tx.setSender(sender);
-    tx.setGasPayment([
-      {
-        objectId: coins.data[0].coinObjectId,
-        version: coins.data[0].version,
-        digest: coins.data[0].digest,
-      },
-    ]);
+    const allShirtObjectIds: string[] = [];
+    let remaining = count;
+    let lastDigest = "";
 
-    const builtBytes = await tx.build({ client });
-    const { signature } = await keypair.signTransaction(builtBytes);
-    const signatureBase64 = typeof signature === "string" ? signature : toBase64(signature);
-
-    const result = await client.executeTransactionBlock({
-      transactionBlock: builtBytes,
-      signature: signatureBase64,
-      options: { showObjectChanges: true, showEffects: true },
-    });
-
-    if (result.effects?.status?.status !== "success") {
-      const err = result.effects?.status?.error ?? result.effects?.status?.status;
-      res.status(500).json({ error: "Transaction failed", details: String(err) });
-      return;
-    }
-
-    const changes = result.objectChanges ?? [];
-    const createdIds: string[] = [];
-    for (const c of changes) {
-      const rec = c as Record<string, unknown>;
-      if (String(rec.type).toLowerCase() !== "created") continue;
-      const id = rec.objectId ?? (rec.reference as { objectId?: string })?.objectId;
-      if (typeof id === "string") createdIds.push(id);
-    }
-
-    let shirtObjectIds: string[] = [];
-    if (createdIds.length > 0) {
-      const objects = await client.multiGetObjects({
-        ids: createdIds,
-        options: { showContent: true, showType: true },
+    while (remaining > 0) {
+      const batchCount = Math.min(remaining, MINT_BATCH_SIZE);
+      const tx = new Transaction();
+      tx.moveCall({
+        target: `${PACKAGE_ID}::onchaindrips::mint_shirts`,
+        arguments: [
+          tx.object(adminCapId),
+          tx.object(normalizedDropId),
+          tx.pure.u64(BigInt(batchCount)),
+          tx.pure.vector("u8", imageBytes),
+          tx.pure.vector("u8", metadataBytes),
+        ],
       });
-      for (const obj of objects) {
-        const type = obj.data?.type;
-        if (type && String(type).includes("::onchaindrips::Shirt") && obj.data?.objectId) {
-          shirtObjectIds.push(obj.data.objectId);
+      tx.setSender(sender);
+      tx.setGasPayment([
+        {
+          objectId: coins.data[0].coinObjectId,
+          version: coins.data[0].version,
+          digest: coins.data[0].digest,
+        },
+      ]);
+
+      const builtBytes = await tx.build({ client });
+      const { signature } = await keypair.signTransaction(builtBytes);
+      const signatureBase64 = typeof signature === "string" ? signature : toBase64(signature);
+
+      const result = await client.executeTransactionBlock({
+        transactionBlock: builtBytes,
+        signature: signatureBase64,
+        options: { showObjectChanges: true, showEffects: true },
+      });
+
+      if (result.effects?.status?.status !== "success") {
+        const err = result.effects?.status?.error ?? result.effects?.status?.status;
+        res.status(500).json({ error: "Transaction failed", details: String(err) });
+        return;
+      }
+
+      lastDigest = result.digest;
+      const changes = result.objectChanges ?? [];
+      const createdIds: string[] = [];
+      for (const c of changes) {
+        const rec = c as Record<string, unknown>;
+        if (String(rec.type).toLowerCase() !== "created") continue;
+        const id = rec.objectId ?? (rec.reference as { objectId?: string })?.objectId;
+        if (typeof id === "string") createdIds.push(id);
+      }
+
+      if (createdIds.length > 0) {
+        const beforeCount = allShirtObjectIds.length;
+        const objects = await client.multiGetObjects({
+          ids: createdIds,
+          options: { showContent: true, showType: true },
+        });
+        for (const obj of objects) {
+          const type = obj.data?.type;
+          if (type && String(type).includes("::onchaindrips::Shirt") && obj.data?.objectId) {
+            allShirtObjectIds.push(obj.data.objectId);
+          }
+        }
+        if (allShirtObjectIds.length - beforeCount < createdIds.length) {
+          for (const id of createdIds) {
+            if (!allShirtObjectIds.includes(id)) allShirtObjectIds.push(id);
+          }
+        }
+      }
+
+      remaining -= batchCount;
+      if (remaining > 0) {
+        // Refresh gas coin for next batch
+        const refreshed = await client.getCoins({
+          owner: sender,
+          coinType: "0x2::sui::SUI",
+        });
+        if (refreshed.data.length > 0) {
+          coins.data[0] = refreshed.data[0];
         }
       }
     }
-    if (shirtObjectIds.length === 0 && createdIds.length > 0) shirtObjectIds = createdIds;
+
+    const shirtObjectIds = allShirtObjectIds;
 
     const objects = await client.multiGetObjects({
       ids: shirtObjectIds,
@@ -957,7 +1009,7 @@ export async function mintShirtsHandler(req: Request, res: Response): Promise<vo
 
     res.status(201).json({
       dropObjectId: normalizedDropId,
-      digest: result.digest,
+      digest: lastDigest,
       count: rows.length,
       shirtObjectIds,
       claimTokens,

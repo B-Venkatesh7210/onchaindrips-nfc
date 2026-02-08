@@ -33,6 +33,7 @@ import {
 } from "./routes/admin.js";
 import { uploadCarouselImageHandler } from "./routes/upload.js";
 import { faucetHandler } from "./routes/yellow.js";
+import { upsertUserHandler } from "./routes/users.js";
 
 const app = express();
 const client = new SuiClient({ url: config.rpcUrl });
@@ -81,6 +82,9 @@ app.post("/drops/:dropId/bids", placeBidHandler);
 
 // Yellow sandbox: faucet proxy (avoids CORS)
 app.post("/yellow/faucet", faucetHandler);
+
+// User registration on zkLogin sign-in
+app.post("/users/upsert", upsertUserHandler);
 
 // Admin-only (X-Admin-Address header must match ADMIN_ADDRESS)
 app.get("/admin/drops", adminMiddleware, listDropsHandler);

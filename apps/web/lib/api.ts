@@ -7,6 +7,34 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
 /** Admin wallet address; admin routes require X-Admin-Address matching this. */
 export const ADMIN_ADDRESS = "0x024b62b65c206e255b02b5fcf770634dcf0a4cac20dcca93f591a5253960365d";
 
+/** Upsert user in Supabase on zkLogin sign-in. Fails silently if API/Supabase unavailable. */
+export async function upsertUser(params: {
+  address: string;
+  auth_provider?: string;
+  auth_sub: string;
+  email?: string;
+  name?: string;
+}): Promise<void> {
+  try {
+    const res = await fetch(`${API_URL}/users/upsert`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        address: params.address,
+        auth_provider: params.auth_provider ?? "google",
+        auth_sub: params.auth_sub,
+        email: params.email,
+        name: params.name,
+      }),
+    });
+    if (!res.ok) {
+      console.warn("User upsert failed:", res.status, await res.text());
+    }
+  } catch (e) {
+    console.warn("User upsert request failed:", e);
+  }
+}
+
 export type DropRow = {
   id?: string;
   object_id: string;

@@ -78,6 +78,17 @@ export default function Header() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  useEffect(() => {
+    if (isMenuOpen) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "";
+    }
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [isMenuOpen]);
+
   const headerBase = "bg-[rgba(20,10,20,0.55)] backdrop-blur-2xl border-red-600/20";
   const headerShrink = "border-red-600/30";
   const navLinkClass = "text-white/80 hover:text-white";
@@ -86,7 +97,11 @@ export default function Header() {
   const menuLinkClass = "text-white hover:text-red-500";
 
   return (
-    <header className="fixed top-0 left-0 w-full z-50 transition-all duration-300 flex justify-center pointer-events-none">
+    <header
+      className={`fixed top-0 left-0 w-full z-50 transition-all duration-300 flex justify-center ${
+        isMenuOpen ? "pointer-events-auto" : "pointer-events-none"
+      }`}
+    >
       <div
         className={`
           ${headerBase} backdrop-blur-2xl flex items-center justify-between pointer-events-auto
@@ -192,9 +207,10 @@ export default function Header() {
           {/* Mobile menu button */}
           <button
             type="button"
-            className="md:hidden text-white ml-2 p-3"
+            className="md:hidden text-white ml-2 p-3 min-w-[44px] min-h-[44px] flex items-center justify-center [touch-action:manipulation]"
             onClick={() => setIsMenuOpen(!isMenuOpen)}
             aria-label="Toggle menu"
+            aria-expanded={isMenuOpen}
           >
             {isMenuOpen ? (
               <svg className="h-10 w-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -257,17 +273,10 @@ export default function Header() {
             ) : (
               <div className="w-full max-w-xs mt-8 space-y-2">
                 <p className="text-white/70 text-center text-sm truncate px-4">{shortenAddress(address)}</p>
-                <Link
-                  href="/dashboard"
-                  onClick={() => setIsMenuOpen(false)}
-                  className={`${menuLinkClass} block px-4 py-3 text-center font-semibold hover:bg-red-600/10 rounded-full`}
-                >
-                  Dashboard
-                </Link>
                 <button
                   type="button"
                   onClick={handleLogout}
-                  className={`${menuTabs} block w-full px-4 py-3 text-center font-semibold hover:bg-red-600/10 rounded-full`}
+                  className={`${menuLinkClass} block w-full px-4 py-3 text-center font-semibold hover:bg-red-600/10 rounded-full`}
                 >
                   Sign out
                 </button>

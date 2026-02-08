@@ -2,8 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { completeZkLogin } from "@/lib/auth";
+import { completeZkLogin, getUserInfo } from "@/lib/auth";
 import { getAndClearReturnTo } from "@/lib/zklogin-utils";
+import { upsertUser } from "@/lib/api";
 
 /**
  * OAuth callback page
@@ -32,6 +33,16 @@ export default function AuthCallbackPage() {
 
         // Complete zkLogin flow (generate proof and store session)
         const userAddress = await completeZkLogin(idToken);
+
+        // Record user in Supabase (address, auth details)
+        const userInfo = getUserInfo();
+        await upsertUser({
+          address: userAddress,
+          auth_provider: "google",
+          auth_sub: userInfo?.sub ?? "",
+          email: userInfo?.email,
+          name: userInfo?.name,
+        });
 
         console.log("zkLogin completed, user address:", userAddress);
         setStatus("success");

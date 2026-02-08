@@ -604,7 +604,7 @@ export default function ShirtPageContent({
               )}
             </div>
             {description && (
-              <p className="mt-4 text-white/60 text-sm leading-relaxed">
+              <p className="mt-4 text-white/60 text-sm leading-relaxed whitespace-pre-wrap">
                 {description}
               </p>
             )}
