@@ -6,7 +6,10 @@ import { useCallback, useEffect, useState } from "react";
 import { getSuiClient, CURRENT_SHIRT_TYPE } from "@/lib/sui";
 import { getStoredAddress } from "@/lib/auth";
 import { fetchDrops, walrusBlobIdToString, type DropRow } from "@/lib/api";
-import { ImageCarousel, type CarouselSlide } from "@/app/components/ImageCarousel";
+import {
+  ImageCarousel,
+  type CarouselSlide,
+} from "@/app/components/ImageCarousel";
 
 type ShirtSummary = {
   objectId: string;
@@ -16,6 +19,8 @@ type ShirtSummary = {
   isMinted?: boolean;
   /** Hex blob ID for NFT image (from chain). */
   imageBlobId: string | null;
+  /** Mint timestamp ms (from chain); for sorting newest first. */
+  mintedAtMs?: number;
 };
 
 function shortenAddress(addr: string): string {
@@ -42,8 +47,8 @@ function shirtCarouselSlides(
         ? { primary: toImageUrl(nft), fallback: toImageUrl(u1) }
         : toImageUrl(nft)
       : u1
-        ? toImageUrl(u1)
-        : null;
+      ? toImageUrl(u1)
+      : null;
     const slide2 = u2 ? toImageUrl(u2) : null;
     return [slide1, slide2].filter(Boolean) as CarouselSlide[];
   }
@@ -142,6 +147,12 @@ export default function DashboardPage() {
               : Number(fields.serial)
             : undefined;
         const isMinted = Boolean(fields?.is_minted);
+        const mintedAtMs =
+          fields?.minted_at_ms != null
+            ? typeof fields.minted_at_ms === "string"
+              ? Number(fields.minted_at_ms)
+              : Number(fields.minted_at_ms)
+            : undefined;
         const dropId =
           typeof fields?.drop_id === "string" ? fields.drop_id : "";
         if (!dropId) continue;
@@ -160,11 +171,17 @@ export default function DashboardPage() {
           serial: Number.isNaN(serial) ? undefined : serial,
           isMinted,
           imageBlobId,
+          mintedAtMs: Number.isNaN(mintedAtMs) ? undefined : mintedAtMs,
         });
       }
-      cursor = page.hasNextPage ? (page.nextCursor ?? undefined) : undefined;
+      cursor = page.hasNextPage ? page.nextCursor ?? undefined : undefined;
     } while (cursor);
-    items.sort((a, b) => b.objectId.localeCompare(a.objectId));
+    items.sort((a, b) => {
+      const tA = a.mintedAtMs ?? 0;
+      const tB = b.mintedAtMs ?? 0;
+      if (tB !== tA) return tB - tA;
+      return b.objectId.localeCompare(a.objectId);
+    });
     setShirts(items);
   }, []);
 
