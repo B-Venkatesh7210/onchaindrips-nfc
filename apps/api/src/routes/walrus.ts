@@ -83,7 +83,7 @@ export async function walrusUploadImageHandler(req: Request, res: Response): Pro
     const putRes = await fetch(`${PUBLISHER}/v1/blobs?epochs=3`, {
       method: "PUT",
       headers: { "Content-Type": contentType },
-      body: file.buffer,
+      body: new Uint8Array(file.buffer),
     });
 
     if (!putRes.ok) {

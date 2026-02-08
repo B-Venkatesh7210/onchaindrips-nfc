@@ -6,6 +6,7 @@ import type { Request, Response } from "express";
 import { fromBase64, toBase64 } from "@mysten/bcs";
 import { SuiClient } from "@mysten/sui/client";
 import { parseSerializedSignature } from "@mysten/sui/cryptography";
+import { publicKeyFromRawBytes } from "@mysten/sui/verify";
 import { Transaction } from "@mysten/sui/transactions";
 import { normalizeSuiAddress } from "@mysten/sui/utils";
 import { config } from "../config.js";
@@ -95,7 +96,8 @@ export async function sponsorHandler(req: Request, res: Response): Promise<void>
         res.status(400).json({ error: "userSignatureBase64 could not be parsed to get sender" });
         return;
       }
-      sender = parsed.publicKey.toSuiAddress();
+      const pk = publicKeyFromRawBytes(parsed.signatureScheme, parsed.publicKey);
+      sender = pk.toSuiAddress();
     } catch {
       res.status(400).json({ error: "userSignatureBase64 is invalid" });
       return;
