@@ -50,7 +50,7 @@ export default function NfcShirtPage() {
   if (!segment) {
     return (
       <div className="flex min-h-[40vh] items-center justify-center px-4">
-        <p className="text-neutral-500">Invalid shirt URL.</p>
+        <p className="text-white/70">Invalid shirt URL.</p>
       </div>
     );
   }
@@ -58,7 +58,7 @@ export default function NfcShirtPage() {
   if (resolveError) {
     return (
       <div className="flex min-h-[40vh] items-center justify-center px-4">
-        <p className="text-neutral-500">{resolveError}</p>
+        <p className="text-white/70">{resolveError}</p>
       </div>
     );
   }
@@ -66,7 +66,7 @@ export default function NfcShirtPage() {
   if (!resolvedShirtId) {
     return (
       <div className="flex min-h-[40vh] items-center justify-center px-4">
-        <p className="text-neutral-500">Loading…</p>
+        <p className="text-white/70">Loading…</p>
       </div>
     );
   }

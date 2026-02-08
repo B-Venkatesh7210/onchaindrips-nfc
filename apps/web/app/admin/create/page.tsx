@@ -27,16 +27,16 @@ function CopyableBlobId({ label, value }: { label: string; value: string }) {
   }, [value]);
   return (
     <div className="mt-2">
-      <span className="text-sm font-medium text-neutral-600">{label}</span>
+      <span className="text-sm font-medium text-white/70">{label}</span>
       <div className="mt-1 flex items-center gap-2">
-        <code className="flex-1 truncate rounded bg-neutral-100 px-2 py-1.5 text-xs text-neutral-800">
+        <code className="flex-1 truncate rounded bg-black/40 border border-white/10 px-2 py-1.5 text-xs text-white/90 font-mono">
           {value || "—"}
         </code>
         <button
           type="button"
           onClick={copy}
           disabled={!value}
-          className="rounded bg-neutral-200 px-2 py-1.5 text-xs font-medium hover:bg-neutral-300 disabled:opacity-50"
+          className="rounded bg-white/10 px-2 py-1.5 text-xs font-medium text-white/90 hover:bg-white/20 disabled:opacity-50"
         >
           {copied ? "Copied" : "Copy"}
         </button>
@@ -93,6 +93,8 @@ export default function AdminCreateDropPage() {
   const [mintMetadataBlobId, setMintMetadataBlobId] = useState("");
   const [mintUploadedImage1File, setMintUploadedImage1File] = useState<File | null>(null);
   const [mintUploadedImage2File, setMintUploadedImage2File] = useState<File | null>(null);
+  const [mintUploadedImage1Preview, setMintUploadedImage1Preview] = useState<string | null>(null);
+  const [mintUploadedImage2Preview, setMintUploadedImage2Preview] = useState<string | null>(null);
   const [mintUploadedImage1Url, setMintUploadedImage1Url] = useState("");
   const [mintUploadedImage2Url, setMintUploadedImage2Url] = useState("");
   const [mintUploadedImageUploading, setMintUploadedImageUploading] = useState(false);
@@ -165,6 +167,14 @@ export default function AdminCreateDropPage() {
     metaReleaseDate,
     metaTotalSupply,
   ]);
+
+  // Cleanup carousel image preview object URLs on unmount
+  useEffect(() => {
+    return () => {
+      if (mintUploadedImage1Preview) URL.revokeObjectURL(mintUploadedImage1Preview);
+      if (mintUploadedImage2Preview) URL.revokeObjectURL(mintUploadedImage2Preview);
+    };
+  }, [mintUploadedImage1Preview, mintUploadedImage2Preview]);
 
   // Sync metadata fields → drop details so filling metadata autofills drop section
   useEffect(() => {
@@ -333,10 +343,10 @@ export default function AdminCreateDropPage() {
   if (!address) {
     return (
       <div className="mx-auto max-w-2xl px-4 py-8">
-        <p className="text-neutral-600">Sign in to access this page.</p>
+        <p className="text-white/70">Sign in to access this page.</p>
         <Link
           href="/"
-          className="mt-4 inline-block text-sm text-neutral-500 hover:text-neutral-700"
+          className="mt-4 inline-block text-sm text-white/60 hover:text-white"
         >
           ← Home
         </Link>
@@ -347,10 +357,10 @@ export default function AdminCreateDropPage() {
   if (!isAdmin) {
     return (
       <div className="mx-auto max-w-2xl px-4 py-8">
-        <p className="text-neutral-600">Admin only.</p>
+        <p className="text-white/70">Admin only.</p>
         <Link
           href="/"
-          className="mt-4 inline-block text-sm text-neutral-500 hover:text-neutral-700"
+          className="mt-4 inline-block text-sm text-white/60 hover:text-white"
         >
           ← Home
         </Link>
@@ -359,115 +369,122 @@ export default function AdminCreateDropPage() {
   }
 
   return (
-    <div className="mx-auto max-w-2xl px-4 py-8">
+    <div className="mx-auto max-w-6xl px-4 py-8">
       <Link
         href="/"
-        className="text-sm text-neutral-500 hover:text-neutral-700"
+        className="text-sm text-white/60 hover:text-white"
       >
         ← Home
       </Link>
-      <h1 className="mt-6 text-2xl font-bold text-neutral-900">
+      <h1 className="mt-6 text-2xl font-bold text-white">
         Create a drop
       </h1>
-      <p className="mt-1 text-sm text-neutral-500">
+      <p className="mt-1 text-sm text-white/60">
         Complete each section in order. After minting you’ll be redirected to
         the home page.
       </p>
 
-      {/* Section 1: Image upload */}
-      <section className="mt-8 rounded-xl border border-neutral-200 bg-white p-6">
-        <h2 className="text-lg font-semibold text-neutral-800">
+      {/* Section 1: Image upload — form left, preview right */}
+      <section className="mt-8 rounded-xl border border-white/10 bg-black/30 backdrop-blur-sm p-6">
+        <h2 className="text-lg font-semibold text-white">
           1. NFT T-shirt image
         </h2>
-        <p className="mt-1 text-sm text-neutral-500">
+        <p className="mt-1 text-sm text-white/60">
           Upload to Walrus; use the blob ID for minting.
         </p>
-        <div className="mt-4">
-          <input
-            type="file"
-            accept="image/*"
-            onChange={handleImageChange}
-            className="text-sm"
-          />
-          {imagePreview && (
-            <div className="mt-3">
-              <img
-                src={imagePreview}
-                alt="Preview"
-                className="max-h-48 rounded-lg border border-neutral-200 object-contain"
-              />
+        <div className="mt-4 flex flex-col gap-6 lg:flex-row lg:items-start">
+          <div className="flex-1 space-y-3">
+            <input
+              type="file"
+              accept="image/*"
+              onChange={handleImageChange}
+              className="block w-full text-sm text-white/80 file:mr-3 file:rounded-lg file:border-0 file:bg-white/10 file:px-4 file:py-2 file:text-sm file:font-medium file:text-white hover:file:bg-white/20"
+            />
+            <button
+              type="button"
+              onClick={uploadImage}
+              disabled={!imageFile || imageUploading}
+              className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-500 disabled:opacity-50"
+            >
+              {imageUploading ? "Uploading…" : "Upload to Walrus"}
+            </button>
+            {imageError && (
+              <p className="text-sm text-red-400">{imageError}</p>
+            )}
+            <CopyableBlobId label="Walrus blob ID (image)" value={imageBlobId} />
+          </div>
+          <div className="flex shrink-0 flex-col items-center lg:w-80">
+            <p className="mb-2 text-xs font-medium text-white/50 uppercase tracking-wider">Preview</p>
+            <div className="aspect-square w-full max-w-sm rounded-xl border border-white/10 bg-black/40 flex items-center justify-center overflow-hidden">
+              {imagePreview ? (
+                <img
+                  src={imagePreview}
+                  alt="NFT preview"
+                  className="h-full w-full object-contain p-2"
+                />
+              ) : (
+                <span className="text-sm text-white/40">No image selected</span>
+              )}
             </div>
-          )}
-          <button
-            type="button"
-            onClick={uploadImage}
-            disabled={!imageFile || imageUploading}
-            className="mt-3 rounded-lg bg-neutral-800 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-700 disabled:opacity-50"
-          >
-            {imageUploading ? "Uploading…" : "Upload to Walrus"}
-          </button>
-          {imageError && (
-            <p className="mt-2 text-sm text-red-600">{imageError}</p>
-          )}
-          <CopyableBlobId label="Walrus blob ID (image)" value={imageBlobId} />
+          </div>
         </div>
       </section>
 
       {/* Section 2: Metadata */}
-      <section className="mt-8 rounded-xl border border-neutral-200 bg-white p-6">
-        <h2 className="text-lg font-semibold text-neutral-800">
+      <section className="mt-8 rounded-xl border border-white/10 bg-black/30 backdrop-blur-sm p-6">
+        <h2 className="text-lg font-semibold text-white">
           2. Metadata for NFT
         </h2>
-        <p className="mt-1 text-sm text-neutral-500">
+        <p className="mt-1 text-sm text-white/60">
           Upload JSON to Walrus; use the blob ID for minting.
         </p>
         <div className="mt-4 grid gap-3 sm:grid-cols-2">
           <div>
-            <label className="text-sm font-medium text-neutral-600">
+            <label className="text-sm font-medium text-white/70">
               Drop Name
             </label>
             <input
               type="text"
               value={metaDropName}
               onChange={(e) => setMetaDropName(e.target.value)}
-              className="mt-1 w-full rounded border border-neutral-200 px-3 py-2 text-sm"
+              className="mt-1 w-full rounded border border-white/20 bg-black/40 px-3 py-2 text-sm text-white placeholder-white/40"
             />
           </div>
           <div>
-            <label className="text-sm font-medium text-neutral-600">
+            <label className="text-sm font-medium text-white/70">
               Company Name
             </label>
             <input
               type="text"
               value={metaCompanyName}
               onChange={(e) => setMetaCompanyName(e.target.value)}
-              className="mt-1 w-full rounded border border-neutral-200 px-3 py-2 text-sm"
+              className="mt-1 w-full rounded border border-white/20 bg-black/40 px-3 py-2 text-sm text-white placeholder-white/40"
             />
           </div>
           <div>
-            <label className="text-sm font-medium text-neutral-600">
+            <label className="text-sm font-medium text-white/70">
               Event Name
             </label>
             <input
               type="text"
               value={metaEventName}
               onChange={(e) => setMetaEventName(e.target.value)}
-              className="mt-1 w-full rounded border border-neutral-200 px-3 py-2 text-sm"
+              className="mt-1 w-full rounded border border-white/20 bg-black/40 px-3 py-2 text-sm text-white placeholder-white/40"
             />
           </div>
           <div>
-            <label className="text-sm font-medium text-neutral-600">
+            <label className="text-sm font-medium text-white/70">
               Release Date
             </label>
             <input
               type="date"
               value={metaReleaseDate}
               onChange={(e) => setMetaReleaseDate(e.target.value)}
-              className="mt-1 w-full rounded border border-neutral-200 px-3 py-2 text-sm"
+              className="mt-1 w-full rounded border border-white/20 bg-black/40 px-3 py-2 text-sm text-white placeholder-white/40 [color-scheme:dark]"
             />
           </div>
           <div>
-            <label className="text-sm font-medium text-neutral-600">
+            <label className="text-sm font-medium text-white/70">
               Total Supply
             </label>
             <input
@@ -475,7 +492,7 @@ export default function AdminCreateDropPage() {
               min={1}
               value={metaTotalSupply}
               onChange={(e) => setMetaTotalSupply(e.target.value)}
-              className="mt-1 w-full rounded border border-neutral-200 px-3 py-2 text-sm"
+              className="mt-1 w-full rounded border border-white/20 bg-black/40 px-3 py-2 text-sm text-white placeholder-white/40"
             />
           </div>
         </div>
@@ -483,12 +500,12 @@ export default function AdminCreateDropPage() {
           type="button"
           onClick={uploadMetadata}
           disabled={metadataUploading}
-          className="mt-4 rounded-lg bg-neutral-800 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-700 disabled:opacity-50"
+          className="mt-4 rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-500 disabled:opacity-50"
         >
           {metadataUploading ? "Uploading…" : "Upload metadata to Walrus"}
         </button>
         {metadataError && (
-          <p className="mt-2 text-sm text-red-600">{metadataError}</p>
+          <p className="mt-2 text-sm text-red-400">{metadataError}</p>
         )}
         <CopyableBlobId
           label="Walrus blob ID (metadata)"
@@ -497,49 +514,49 @@ export default function AdminCreateDropPage() {
       </section>
 
       {/* Section 3: Drop details (onchain + Supabase) */}
-      <section className="mt-8 rounded-xl border border-neutral-200 bg-white p-6">
-        <h2 className="text-lg font-semibold text-neutral-800">
+      <section className="mt-8 rounded-xl border border-white/10 bg-black/30 backdrop-blur-sm p-6">
+        <h2 className="text-lg font-semibold text-white">
           3. Drop details
         </h2>
-        <p className="mt-1 text-sm text-neutral-500">
+        <p className="mt-1 text-sm text-white/60">
           Creates the drop onchain and in the database.
         </p>
         <div className="mt-4 grid gap-3 sm:grid-cols-2">
           <div>
-            <label className="text-sm font-medium text-neutral-600">
+            <label className="text-sm font-medium text-white/70">
               Drop Name
             </label>
             <input
               type="text"
               value={dropName}
               onChange={(e) => setDropName(e.target.value)}
-              className="mt-1 w-full rounded border border-neutral-200 px-3 py-2 text-sm"
+              className="mt-1 w-full rounded border border-white/20 bg-black/40 px-3 py-2 text-sm text-white placeholder-white/40"
             />
           </div>
           <div>
-            <label className="text-sm font-medium text-neutral-600">
+            <label className="text-sm font-medium text-white/70">
               Company Name
             </label>
             <input
               type="text"
               value={dropCompanyName}
               onChange={(e) => setDropCompanyName(e.target.value)}
-              className="mt-1 w-full rounded border border-neutral-200 px-3 py-2 text-sm"
+              className="mt-1 w-full rounded border border-white/20 bg-black/40 px-3 py-2 text-sm text-white placeholder-white/40"
             />
           </div>
           <div>
-            <label className="text-sm font-medium text-neutral-600">
+            <label className="text-sm font-medium text-white/70">
               Event Name
             </label>
             <input
               type="text"
               value={dropEventName}
               onChange={(e) => setDropEventName(e.target.value)}
-              className="mt-1 w-full rounded border border-neutral-200 px-3 py-2 text-sm"
+              className="mt-1 w-full rounded border border-white/20 bg-black/40 px-3 py-2 text-sm text-white placeholder-white/40"
             />
           </div>
           <div>
-            <label className="text-sm font-medium text-neutral-600">
+            <label className="text-sm font-medium text-white/70">
               Total Supply
             </label>
             <input
@@ -547,33 +564,33 @@ export default function AdminCreateDropPage() {
               min={1}
               value={dropTotalSupply}
               onChange={(e) => setDropTotalSupply(e.target.value)}
-              className="mt-1 w-full rounded border border-neutral-200 px-3 py-2 text-sm"
+              className="mt-1 w-full rounded border border-white/20 bg-black/40 px-3 py-2 text-sm text-white placeholder-white/40"
             />
           </div>
           <div>
-            <label className="text-sm font-medium text-neutral-600">
+            <label className="text-sm font-medium text-white/70">
               Release date
             </label>
             <input
               type="date"
               value={dropReleaseDate}
               onChange={(e) => setDropReleaseDate(e.target.value)}
-              className="mt-1 w-full rounded border border-neutral-200 px-3 py-2 text-sm"
+              className="mt-1 w-full rounded border border-white/20 bg-black/40 px-3 py-2 text-sm text-white placeholder-white/40 [color-scheme:dark]"
             />
           </div>
         </div>
         <div className="mt-4 space-y-3">
           <div>
-            <h3 className="text-sm font-semibold text-neutral-800">
+            <h3 className="text-sm font-semibold text-white">
               Bidding / reservations (optional)
             </h3>
-            <p className="mt-1 text-xs text-neutral-500">
+            <p className="mt-1 text-xs text-white/60">
               Configure how many shirts can be pre-reserved via bidding and when
               bidding ends.
             </p>
             <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div>
-                <label className="mb-1 block text-xs font-medium text-neutral-700">
+                <label className="mb-1 block text-xs font-medium text-white/70">
                   Reservation slots
                 </label>
                 <input
@@ -581,46 +598,46 @@ export default function AdminCreateDropPage() {
                   min={0}
                   value={dropReservationSlots}
                   onChange={(e) => setDropReservationSlots(e.target.value)}
-                  className="w-full rounded border border-neutral-200 px-3 py-2 text-sm"
+                  className="w-full rounded border border-white/20 bg-black/40 px-3 py-2 text-sm text-white placeholder-white/40"
                   placeholder="0 (disable bidding)"
                 />
               </div>
               <div>
-                <label className="mb-1 block text-xs font-medium text-neutral-700">
+                <label className="mb-1 block text-xs font-medium text-white/70">
                   Bidding ends at
                 </label>
                 <input
                   type="datetime-local"
                   value={dropBiddingEndsAt}
                   onChange={(e) => setDropBiddingEndsAt(e.target.value)}
-                  className="w-full rounded border border-neutral-200 px-3 py-2 text-sm"
+                  className="w-full rounded border border-white/20 bg-black/40 px-3 py-2 text-sm text-white placeholder-white/40 [color-scheme:dark]"
                 />
               </div>
             </div>
             <div className="mt-3">
-              <label className="mb-1 block text-xs font-medium text-neutral-700">
+              <label className="mb-1 block text-xs font-medium text-white/70">
                 Reservation EVM recipient (organizer wallet)
               </label>
               <input
                 type="text"
                 value={dropReservationEvmRecipient}
                 onChange={(e) => setDropReservationEvmRecipient(e.target.value)}
-                className="w-full rounded border border-neutral-200 px-3 py-2 text-sm"
+                className="w-full rounded border border-white/20 bg-black/40 px-3 py-2 text-sm text-white placeholder-white/40"
                 placeholder="0x..."
               />
             </div>
           </div>
 
           <div className="pt-2">
-            <h3 className="text-sm font-semibold text-neutral-800">
+            <h3 className="text-sm font-semibold text-white">
               Size inventory (optional)
             </h3>
-            <p className="mt-1 text-xs text-neutral-500">
+            <p className="mt-1 text-xs text-white/60">
               Specify how many shirts are available in each size for this drop.
             </p>
             <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-5">
               <div>
-                <label className="mb-1 block text-xs font-medium text-neutral-700">
+                <label className="mb-1 block text-xs font-medium text-white/70">
                   S
                 </label>
                 <input
@@ -628,11 +645,11 @@ export default function AdminCreateDropPage() {
                   min={0}
                   value={dropSizeS}
                   onChange={(e) => setDropSizeS(e.target.value)}
-                  className="w-full rounded border border-neutral-200 px-2 py-1.5 text-xs"
+                  className="w-full rounded border border-white/20 bg-black/40 px-2 py-1.5 text-xs text-white placeholder-white/40"
                 />
               </div>
               <div>
-                <label className="mb-1 block text-xs font-medium text-neutral-700">
+                <label className="mb-1 block text-xs font-medium text-white/70">
                   M
                 </label>
                 <input
@@ -640,11 +657,11 @@ export default function AdminCreateDropPage() {
                   min={0}
                   value={dropSizeM}
                   onChange={(e) => setDropSizeM(e.target.value)}
-                  className="w-full rounded border border-neutral-200 px-2 py-1.5 text-xs"
+                  className="w-full rounded border border-white/20 bg-black/40 px-2 py-1.5 text-xs text-white placeholder-white/40"
                 />
               </div>
               <div>
-                <label className="mb-1 block text-xs font-medium text-neutral-700">
+                <label className="mb-1 block text-xs font-medium text-white/70">
                   L
                 </label>
                 <input
@@ -652,11 +669,11 @@ export default function AdminCreateDropPage() {
                   min={0}
                   value={dropSizeL}
                   onChange={(e) => setDropSizeL(e.target.value)}
-                  className="w-full rounded border border-neutral-200 px-2 py-1.5 text-xs"
+                  className="w-full rounded border border-white/20 bg-black/40 px-2 py-1.5 text-xs text-white placeholder-white/40"
                 />
               </div>
               <div>
-                <label className="mb-1 block text-xs font-medium text-neutral-700">
+                <label className="mb-1 block text-xs font-medium text-white/70">
                   XL
                 </label>
                 <input
@@ -664,11 +681,11 @@ export default function AdminCreateDropPage() {
                   min={0}
                   value={dropSizeXL}
                   onChange={(e) => setDropSizeXL(e.target.value)}
-                  className="w-full rounded border border-neutral-200 px-2 py-1.5 text-xs"
+                  className="w-full rounded border border-white/20 bg-black/40 px-2 py-1.5 text-xs text-white placeholder-white/40"
                 />
               </div>
               <div>
-                <label className="mb-1 block text-xs font-medium text-neutral-700">
+                <label className="mb-1 block text-xs font-medium text-white/70">
                   XXL
                 </label>
                 <input
@@ -676,52 +693,52 @@ export default function AdminCreateDropPage() {
                   min={0}
                   value={dropSizeXXL}
                   onChange={(e) => setDropSizeXXL(e.target.value)}
-                  className="w-full rounded border border-neutral-200 px-2 py-1.5 text-xs"
+                  className="w-full rounded border border-white/20 bg-black/40 px-2 py-1.5 text-xs text-white placeholder-white/40"
                 />
               </div>
             </div>
           </div>
         </div>
         <div className="mt-3">
-          <label className="text-sm font-medium text-neutral-600">
+          <label className="text-sm font-medium text-white/70">
             Description
           </label>
           <textarea
             value={dropDescription}
             onChange={(e) => setDropDescription(e.target.value)}
             rows={3}
-            className="mt-1 w-full rounded border border-neutral-200 px-3 py-2 text-sm"
+            className="mt-1 w-full rounded border border-white/20 bg-black/40 px-3 py-2 text-sm text-white placeholder-white/40"
           />
         </div>
         <button
           type="button"
           onClick={createDrop}
           disabled={dropCreating}
-          className="mt-4 rounded-lg bg-neutral-800 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-700 disabled:opacity-50"
+          className="mt-4 rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-500 disabled:opacity-50"
         >
           {dropCreating ? "Creating…" : "Create drop onchain + Supabase"}
         </button>
-        {dropError && <p className="mt-2 text-sm text-red-600">{dropError}</p>}
+        {dropError && <p className="mt-2 text-sm text-red-400">{dropError}</p>}
         {createdDropId && (
-          <p className="mt-2 text-sm text-emerald-600">
+          <p className="mt-2 text-sm text-emerald-400">
             Drop created:{" "}
-            <code className="rounded bg-neutral-100 px-1">{createdDropId}</code>
+            <code className="rounded bg-black/40 px-1 text-white/90">{createdDropId}</code>
           </p>
         )}
       </section>
 
       {/* Section 4: Mint shirts */}
-      <section className="mt-8 rounded-xl border border-neutral-200 bg-white p-6">
-        <h2 className="text-lg font-semibold text-neutral-800">
+      <section className="mt-8 rounded-xl border border-white/10 bg-black/30 backdrop-blur-sm p-6">
+        <h2 className="text-lg font-semibold text-white">
           4. Mint shirts
         </h2>
-        <p className="mt-1 text-sm text-neutral-500">
+        <p className="mt-1 text-sm text-white/60">
           Mint total supply shirts onchain and save to Supabase. Paste blob IDs
           from sections 1 and 2.
         </p>
         <div className="mt-4 space-y-3">
           <div>
-            <label className="text-sm font-medium text-neutral-600">
+            <label className="text-sm font-medium text-white/70">
               Walrus blob ID (image)
             </label>
             <input
@@ -729,11 +746,11 @@ export default function AdminCreateDropPage() {
               value={mintImageBlobId}
               onChange={(e) => setMintImageBlobId(e.target.value)}
               placeholder="Paste from section 1"
-              className="mt-1 w-full rounded border border-neutral-200 px-3 py-2 text-sm font-mono"
+              className="mt-1 w-full rounded border border-white/20 bg-black/40 px-3 py-2 text-sm font-mono text-white placeholder-white/40"
             />
           </div>
           <div>
-            <label className="text-sm font-medium text-neutral-600">
+            <label className="text-sm font-medium text-white/70">
               Walrus blob ID (metadata)
             </label>
             <input
@@ -741,65 +758,100 @@ export default function AdminCreateDropPage() {
               value={mintMetadataBlobId}
               onChange={(e) => setMintMetadataBlobId(e.target.value)}
               placeholder="Paste from section 2"
-              className="mt-1 w-full rounded border border-neutral-200 px-3 py-2 text-sm font-mono"
+              className="mt-1 w-full rounded border border-white/20 bg-black/40 px-3 py-2 text-sm font-mono text-white placeholder-white/40"
             />
           </div>
-          <div>
-            <label className="text-sm font-medium text-neutral-600">
-              Carousel image 1 (upload to Supabase Storage)
-            </label>
-            <p className="mt-0.5 text-xs text-neutral-500">
-              Fallback when NFT image fails to load; also used in carousel.
-            </p>
-            <div className="mt-1 flex items-center gap-2">
-              <input
-                type="file"
-                accept="image/*"
-                onChange={(e) => {
-                  const f = e.target.files?.[0];
-                  setMintUploadedImage1File(f ?? null);
-                  if (!f) setMintUploadedImage1Url("");
-                }}
-                className="rounded border border-neutral-200 px-2 py-1.5 text-sm"
-              />
-              {mintUploadedImage1Url && (
-                <span className="text-xs text-emerald-600 font-mono truncate max-w-[12rem]">
-                  Uploaded
-                </span>
-              )}
+        <div className="mt-4 flex flex-col gap-6 lg:flex-row lg:items-start">
+          <div className="flex-1 space-y-4">
+            <div>
+              <label className="text-sm font-medium text-white/70">
+                Carousel image 1 (upload to Supabase Storage)
+              </label>
+              <p className="mt-0.5 text-xs text-white/60">
+                Fallback when NFT image fails to load; also used in carousel.
+              </p>
+              <div className="mt-1 flex items-center gap-2">
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    setMintUploadedImage1Preview((prev) => {
+                      if (prev) URL.revokeObjectURL(prev);
+                      return f ? URL.createObjectURL(f) : null;
+                    });
+                    setMintUploadedImage1File(f ?? null);
+                    if (!f) setMintUploadedImage1Url("");
+                  }}
+                  className="block w-full text-sm text-white/80 file:mr-3 file:rounded-lg file:border-0 file:bg-white/10 file:px-4 file:py-2 file:text-sm file:font-medium file:text-white hover:file:bg-white/20"
+                />
+                {mintUploadedImage1Url && (
+                  <span className="text-xs text-emerald-400 font-medium">Uploaded</span>
+                )}
+              </div>
+            </div>
+            <div>
+              <label className="text-sm font-medium text-white/70">
+                Carousel image 2 (upload to Supabase Storage)
+              </label>
+              <p className="mt-0.5 text-xs text-white/60">
+                Second slide in the image carousel.
+              </p>
+              <div className="mt-1 flex items-center gap-2">
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    setMintUploadedImage2Preview((prev) => {
+                      if (prev) URL.revokeObjectURL(prev);
+                      return f ? URL.createObjectURL(f) : null;
+                    });
+                    setMintUploadedImage2File(f ?? null);
+                    if (!f) setMintUploadedImage2Url("");
+                  }}
+                  className="block w-full text-sm text-white/80 file:mr-3 file:rounded-lg file:border-0 file:bg-white/10 file:px-4 file:py-2 file:text-sm file:font-medium file:text-white hover:file:bg-white/20"
+                />
+                {mintUploadedImage2Url && (
+                  <span className="text-xs text-emerald-400 font-medium">Uploaded</span>
+                )}
+              </div>
             </div>
           </div>
-          <div>
-            <label className="text-sm font-medium text-neutral-600">
-              Carousel image 2 (upload to Supabase Storage)
-            </label>
-            <p className="mt-0.5 text-xs text-neutral-500">
-              Second slide in the image carousel.
-            </p>
-            <div className="mt-1 flex items-center gap-2">
-              <input
-                type="file"
-                accept="image/*"
-                onChange={(e) => {
-                  const f = e.target.files?.[0];
-                  setMintUploadedImage2File(f ?? null);
-                  if (!f) setMintUploadedImage2Url("");
-                }}
-                className="rounded border border-neutral-200 px-2 py-1.5 text-sm"
-              />
-              {mintUploadedImage2Url && (
-                <span className="text-xs text-emerald-600 font-mono truncate max-w-[12rem]">
-                  Uploaded
-                </span>
-              )}
+          <div className="flex shrink-0 flex-col items-center lg:w-80">
+            <p className="mb-2 text-xs font-medium text-white/50 uppercase tracking-wider">Carousel preview</p>
+            <div className="grid w-full max-w-sm grid-cols-2 gap-3">
+              <div className="aspect-square rounded-xl border border-white/10 bg-black/40 flex items-center justify-center overflow-hidden">
+                {mintUploadedImage1Preview ? (
+                  <img
+                    src={mintUploadedImage1Preview}
+                    alt="Carousel 1"
+                    className="h-full w-full object-contain p-2"
+                  />
+                ) : (
+                  <span className="text-xs text-white/40 text-center px-2">Image 1</span>
+                )}
+              </div>
+              <div className="aspect-square rounded-xl border border-white/10 bg-black/40 flex items-center justify-center overflow-hidden">
+                {mintUploadedImage2Preview ? (
+                  <img
+                    src={mintUploadedImage2Preview}
+                    alt="Carousel 2"
+                    className="h-full w-full object-contain p-2"
+                  />
+                ) : (
+                  <span className="text-xs text-white/40 text-center px-2">Image 2</span>
+                )}
+              </div>
             </div>
           </div>
+        </div>
         </div>
         <button
           type="button"
           onClick={mintShirts}
           disabled={!createdDropId || mintSubmitting || mintUploadedImageUploading}
-          className="mt-4 rounded-lg bg-neutral-800 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-700 disabled:opacity-50"
+          className="mt-4 rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-500 disabled:opacity-50"
         >
           {mintUploadedImageUploading
             ? "Uploading images…"
@@ -807,11 +859,11 @@ export default function AdminCreateDropPage() {
               ? "Minting…"
               : "Mint shirts onchain + Supabase"}
         </button>
-        {mintError && <p className="mt-2 text-sm text-red-600">{mintError}</p>}
+        {mintError && <p className="mt-2 text-sm text-red-400">{mintError}</p>}
         {mintedShirtIds && mintedShirtIds.length > 0 && (
-          <div className="mt-6 rounded-lg border border-emerald-200 bg-emerald-50 p-4">
-            <p className="font-medium text-emerald-800">Minting succeeded</p>
-            <p className="mt-1 text-sm text-emerald-700">
+          <div className="mt-6 rounded-lg border border-emerald-500/40 bg-emerald-500/10 p-4">
+            <p className="font-medium text-emerald-300">Minting succeeded</p>
+            <p className="mt-1 text-sm text-emerald-300">
               {mintedShirtIds.length} shirt(s) minted. Download a file with one
               URL per shirt to use in NFC tags.
             </p>
@@ -819,13 +871,13 @@ export default function AdminCreateDropPage() {
               <button
                 type="button"
                 onClick={downloadNfcUrls}
-                className="rounded-lg bg-emerald-700 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-600"
+                className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-500"
               >
                 Download NFC URLs (.txt)
               </button>
               <Link
                 href="/"
-                className="rounded-lg border border-neutral-300 bg-white px-4 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-50"
+                className="rounded-lg border border-white/20 bg-white/10 px-4 py-2 text-sm font-medium text-white hover:bg-white/20"
               >
                 Go to Home
               </Link>

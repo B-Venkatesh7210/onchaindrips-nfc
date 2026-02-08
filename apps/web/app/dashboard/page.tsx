@@ -6,6 +6,7 @@ import { useCallback, useEffect, useState } from "react";
 import { getSuiClient, CURRENT_SHIRT_TYPE } from "@/lib/sui";
 import { getStoredAddress } from "@/lib/auth";
 import { fetchDrops, walrusBlobIdToString, type DropRow } from "@/lib/api";
+import { ImageCarousel, type CarouselSlide } from "@/app/components/ImageCarousel";
 
 type ShirtSummary = {
   objectId: string;
@@ -22,6 +23,34 @@ function shortenAddress(addr: string): string {
   return `${addr.slice(0, 8)}…${addr.slice(-8)}`;
 }
 
+function toImageUrl(value: string): string {
+  const v = value.trim();
+  if (/^https?:\/\//i.test(v)) return v;
+  return `/api/walrus/${encodeURIComponent(v)}`;
+}
+
+function shirtCarouselSlides(
+  shirt: ShirtSummary,
+  drop: DropRow | null
+): CarouselSlide[] {
+  if (drop) {
+    const nft = drop.image_blob_id?.trim();
+    const u1 = drop.uploaded_image_1?.trim();
+    const u2 = drop.uploaded_image_2?.trim();
+    const slide1: CarouselSlide | null = nft
+      ? u1
+        ? { primary: toImageUrl(nft), fallback: toImageUrl(u1) }
+        : toImageUrl(nft)
+      : u1
+        ? toImageUrl(u1)
+        : null;
+    const slide2 = u2 ? toImageUrl(u2) : null;
+    return [slide1, slide2].filter(Boolean) as CarouselSlide[];
+  }
+  const blobId = shirt.imageBlobId ?? null;
+  return blobId ? [toImageUrl(blobId)] : [];
+}
+
 function ShirtCard({
   shirt,
   drop,
@@ -29,48 +58,43 @@ function ShirtCard({
   shirt: ShirtSummary;
   drop: DropRow | null;
 }) {
-  const [imageError, setImageError] = useState(false);
-  const imageSrc = shirt.imageBlobId
-    ? `/api/walrus/${encodeURIComponent(shirt.imageBlobId)}`
-    : drop?.image_blob_id?.trim()
-      ? `/api/walrus/${encodeURIComponent(drop.image_blob_id)}`
-      : null;
+  const carouselSlides = shirtCarouselSlides(shirt, drop);
   const dropName = drop?.name ?? "Drop";
-  const subline = [drop?.company_name, drop?.event_name].filter(Boolean).join(" · ");
+  const subline = [drop?.company_name, drop?.event_name]
+    .filter(Boolean)
+    .join(" · ");
 
   return (
     <Link
       href={`/${shirt.dropId}/${shirt.objectId}`}
-      className="group block overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-sm transition hover:border-neutral-300 hover:shadow-md"
+      className="group block overflow-hidden rounded-xl shadow-xl transition hover:shadow-red-600/20"
     >
-      <div className="relative aspect-square bg-neutral-100">
-        {imageSrc && !imageError ? (
-          <img
-            src={imageSrc}
+      <div className="relative aspect-square overflow-hidden bg-transparent">
+        <div className="h-full w-full transition-transform duration-300 ease-out group-hover:scale-[1.2]">
+          <ImageCarousel
+            slides={carouselSlides}
             alt={dropName}
-            className="h-full w-full object-cover"
-            onError={() => setImageError(true)}
+            className="h-full w-full p-2"
+            imageClassName="h-full w-full object-contain"
           />
-        ) : (
-          <div className="flex h-full w-full items-center justify-center text-neutral-400 text-sm">
-            {imageSrc ? "Image unavailable" : "No image"}
-          </div>
-        )}
+        </div>
         {shirt.isMinted && (
-          <span className="absolute right-2 top-2 rounded-full bg-emerald-600 px-2 py-0.5 text-xs font-medium text-white">
+          <span className="absolute right-2 top-2 rounded-full bg-emerald-600/90 px-2 py-0.5 text-xs font-medium text-white shadow-lg">
             Minted
           </span>
         )}
       </div>
-      <div className="p-4">
-        <h3 className="font-semibold text-neutral-900 truncate">{dropName}</h3>
-        {subline ? <p className="text-sm text-neutral-500 truncate">{subline}</p> : null}
+      <div className="p-4 bg-black border-x border-b border-red-600/40 rounded-b-xl">
+        <h3 className="font-semibold text-white truncate">{dropName}</h3>
+        {subline ? (
+          <p className="text-sm text-white/70 truncate">{subline}</p>
+        ) : null}
         <div className="mt-2 flex items-center justify-between">
-          <span className="rounded-full bg-neutral-100 px-2 py-0.5 text-xs font-medium text-neutral-600">
+          <span className="rounded-full bg-red-600/20 px-2 py-0.5 text-xs font-medium text-red-400">
             Serial #{shirt.serial ?? "?"}
           </span>
           {!shirt.isMinted && (
-            <span className="text-xs font-medium text-amber-600">Unminted</span>
+            <span className="text-xs font-medium text-amber-400">Unminted</span>
           )}
         </div>
       </div>
@@ -102,7 +126,9 @@ export default function DashboardPage() {
         const type = obj.data?.type;
         if (!type) continue;
         const typeLower = type.toLowerCase();
-        const isCurrentPackageShirt = shirtTypeLower ? typeLower === shirtTypeLower : typeLower.includes("::onchaindrips::shirt");
+        const isCurrentPackageShirt = shirtTypeLower
+          ? typeLower === shirtTypeLower
+          : typeLower.includes("::onchaindrips::shirt");
         if (!isCurrentPackageShirt) continue;
         const content = obj.data?.content;
         const fields =
@@ -116,11 +142,16 @@ export default function DashboardPage() {
               : Number(fields.serial)
             : undefined;
         const isMinted = Boolean(fields?.is_minted);
-        const dropId = typeof fields?.drop_id === "string" ? fields.drop_id : "";
+        const dropId =
+          typeof fields?.drop_id === "string" ? fields.drop_id : "";
         if (!dropId) continue;
         const rawImageBlob = fields?.walrus_blob_id_image;
         const imageBlobId = walrusBlobIdToString(
-          Array.isArray(rawImageBlob) ? rawImageBlob : typeof rawImageBlob === "string" ? rawImageBlob : null
+          Array.isArray(rawImageBlob)
+            ? rawImageBlob
+            : typeof rawImageBlob === "string"
+            ? rawImageBlob
+            : null
         );
         items.push({
           objectId: obj.data?.objectId ?? "",
@@ -131,7 +162,7 @@ export default function DashboardPage() {
           imageBlobId,
         });
       }
-      cursor = page.hasNextPage ? page.nextCursor : undefined;
+      cursor = page.hasNextPage ? (page.nextCursor ?? undefined) : undefined;
     } while (cursor);
     setShirts(items);
   }, []);
@@ -146,7 +177,9 @@ export default function DashboardPage() {
     setLoading(true);
     setError(null);
     loadOwnedShirts(addr)
-      .catch((e) => setError(e instanceof Error ? e.message : "Failed to load shirts"))
+      .catch((e) =>
+        setError(e instanceof Error ? e.message : "Failed to load shirts")
+      )
       .finally(() => setLoading(false));
   }, [loadOwnedShirts]);
 
@@ -163,11 +196,11 @@ export default function DashboardPage() {
   if (!address) {
     return (
       <div className="flex min-h-[60vh] flex-col items-center justify-center gap-4 px-4">
-        <p className="text-neutral-600">Sign in to view your dashboard.</p>
+        <p className="text-white/70">Sign in to view your dashboard.</p>
         <button
           type="button"
           onClick={() => router.push("/")}
-          className="rounded-lg bg-neutral-800 px-4 py-2 text-white hover:bg-neutral-700"
+          className="rounded-lg bg-red-600 px-4 py-2 text-white hover:bg-red-500"
         >
           Home
         </button>
@@ -177,30 +210,59 @@ export default function DashboardPage() {
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-8">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-neutral-900">Dashboard</h1>
-        <p className="mt-1 text-neutral-500 text-sm truncate" title={address}>
-          {shortenAddress(address)}
-        </p>
+      <Link href="/" className="text-sm text-white/60 hover:text-white">
+        ← Home
+      </Link>
+      <div className="mt-6 mb-6">
+        <h1 className="text-2xl font-bold text-white">Dashboard</h1>
       </div>
-      {error ? <p className="mb-4 text-red-600 text-sm">{error}</p> : null}
+      {error ? (
+        <div className="mb-4 rounded-lg border border-red-500/40 bg-red-950/40 px-4 py-3">
+          <p className="text-sm text-red-400">{error}</p>
+        </div>
+      ) : null}
       {loading ? (
-        <p className="text-neutral-500">Loading…</p>
+        <div className="flex items-center gap-2">
+          <div className="h-4 w-48 animate-pulse rounded bg-black/40" />
+          <p className="text-sm text-white/50">Loading…</p>
+        </div>
       ) : shirts.length === 0 ? (
-        <div className="rounded-xl border border-neutral-200 bg-white p-8 text-center">
-          <p className="text-neutral-500">No shirts minted yet.</p>
-          <p className="mt-1 text-sm text-neutral-400">Claim a shirt from a drop to see it here.</p>
+        <div className="rounded-xl border border-white/10 bg-black/30 backdrop-blur-sm p-8 text-center">
+          <p className="text-white/80">No shirts minted yet.</p>
+          <p className="mt-1 text-sm text-white/60">
+            Claim a shirt from a drop to see it here.
+          </p>
           {!CURRENT_SHIRT_TYPE && (
-            <p className="mt-3 text-xs text-amber-600">
-              Set <code className="rounded bg-amber-50 px-1">NEXT_PUBLIC_PACKAGE_ID</code> in <code className="rounded bg-amber-50 px-1">apps/web/.env.local</code> to show shirts from your deployed package.
+            <p className="mt-3 text-xs text-amber-400">
+              Set{" "}
+              <code className="rounded bg-black/40 px-1 text-amber-300">
+                NEXT_PUBLIC_PACKAGE_ID
+              </code>{" "}
+              in{" "}
+              <code className="rounded bg-black/40 px-1 text-white/80">
+                apps/web/.env.local
+              </code>{" "}
+              to show shirts from your deployed package.
             </p>
           )}
           {CURRENT_SHIRT_TYPE && (
-            <p className="mt-3 text-xs text-neutral-500">
-              Only shirts from the current app package are shown. If you just minted, ensure <code className="rounded bg-neutral-100 px-1">NEXT_PUBLIC_PACKAGE_ID</code> in the web app matches the package ID in your API <code className="rounded bg-neutral-100 px-1">.env</code>.
+            <p className="mt-3 text-xs text-white/50">
+              Only shirts from the current app package are shown. If you just
+              minted, ensure{" "}
+              <code className="rounded bg-black/40 px-1 text-white/80">
+                NEXT_PUBLIC_PACKAGE_ID
+              </code>{" "}
+              in the web app matches the package ID in your API{" "}
+              <code className="rounded bg-black/40 px-1 text-white/80">
+                .env
+              </code>
+              .
             </p>
           )}
-          <Link href="/" className="mt-4 inline-block text-sm font-medium text-neutral-700 hover:text-neutral-900">
+          <Link
+            href="/"
+            className="mt-4 inline-block text-sm font-medium text-red-400 hover:text-red-300"
+          >
             Browse drops →
           </Link>
         </div>
@@ -210,7 +272,11 @@ export default function DashboardPage() {
             <ShirtCard
               key={s.objectId}
               shirt={s}
-              drop={drops.find((d) => d.object_id?.toLowerCase() === s.dropId.toLowerCase()) ?? null}
+              drop={
+                drops.find(
+                  (d) => d.object_id?.toLowerCase() === s.dropId.toLowerCase()
+                ) ?? null
+              }
             />
           ))}
         </div>

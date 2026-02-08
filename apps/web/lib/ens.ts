@@ -12,8 +12,8 @@ const ENS_TEST_MODE =
   typeof process !== "undefined" && process.env.NEXT_PUBLIC_ENS_TEST_MODE === "true";
 
 const VITALIK_ETH = {
-  address: "0xb8c2C29ee19D8307cb7255e1Cd9CbDE883A267d5" as const,
-  name: "nick.eth",
+  address: "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045" as const,
+  name: "vitalik.eth",
 };
 
 const client = createPublicClient({
@@ -58,13 +58,8 @@ async function getEnsTextRecords(name: string): Promise<EnsRecords> {
       // ignore missing keys / resolver issues
     }
   }
-  // Resolve avatar to a displayable image URL (getEnsText returns raw record e.g. eip155:1/erc721:...)
-  try {
-    const avatarUrl = await client.getEnsAvatar({ name: normalizedName });
-    if (avatarUrl) out.avatar = avatarUrl;
-  } catch {
-    // keep text record avatar if getEnsAvatar failed
-  }
+  // Skip client-side getEnsAvatar — it fetches from euc.li and triggers CORS errors in the browser.
+  // ShirtPageContent uses https://metadata.ens.domains/mainnet/avatar/{name} for display instead.
   return out;
 }
 

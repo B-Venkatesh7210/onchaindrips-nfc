@@ -297,10 +297,14 @@ export default function ShirtPageContent({
       const { ensName, records } = await connectWalletAndLoadEnsProfile();
 
       const fieldsFromEns: Record<string, string> = {};
-      console.log("ens details", fieldsFromEns, records);
-      // Map common ENS records to our friendly keys
-      if (ensName) fieldsFromEns.name = ensName;
-      if (records["avatar"]) fieldsFromEns.avatar = records["avatar"];
+      // Use ENS Metadata Service for avatar — resolves eip155/NFT/IPFS to a displayable HTTP URL
+      // (records["avatar"] can be raw eip155:1/erc1155:... which browsers cannot load)
+      if (ensName) {
+        fieldsFromEns.name = ensName;
+        fieldsFromEns.avatar = `https://metadata.ens.domains/mainnet/avatar/${ensName}`;
+      } else if (records["avatar"]?.startsWith("http")) {
+        fieldsFromEns.avatar = records["avatar"];
+      }
       if (records["description"])
         fieldsFromEns.description = records["description"];
       if (records["url"]) fieldsFromEns.website = records["url"];
@@ -346,20 +350,20 @@ export default function ShirtPageContent({
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-neutral-50">
-        <p className="text-neutral-500">Loading…</p>
+      <div className="min-h-screen flex items-center justify-center px-4">
+        <p className="text-white/70">Loading…</p>
       </div>
     );
   }
 
   if (error && !shirt) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center gap-4 bg-neutral-50 p-4">
-        <p className="text-red-600">{error}</p>
+      <div className="min-h-screen flex flex-col items-center justify-center gap-4 p-4">
+        <p className="text-red-400">{error}</p>
         <button
           type="button"
           onClick={() => router.push("/")}
-          className="px-4 py-2 bg-neutral-800 text-white rounded-lg hover:bg-neutral-700"
+          className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-500"
         >
           Home
         </button>
@@ -376,6 +380,27 @@ export default function ShirtPageContent({
     if (/^https?:\/\//i.test(v)) return v;
     return `/api/walrus/${encodeURIComponent(v)}`;
   };
+
+  /** Returns a displayable avatar URL; converts eip155/ipfs URIs via ENS Metadata Service. */
+  const getDisplayableAvatarUrl = (
+    avatar: string | undefined,
+    ensName?: string | null
+  ): string | null => {
+    if (!avatar?.trim()) return null;
+    const v = avatar.trim();
+    if (/^https?:\/\//i.test(v)) return v;
+    if ((v.startsWith("eip155:") || v.startsWith("ipfs:")) && ensName?.trim()) {
+      return `https://metadata.ens.domains/mainnet/avatar/${ensName.trim()}`;
+    }
+    return null;
+  };
+  const ensNameForAvatar =
+    profile?.ens_name ?? profileDraft.name ?? (profile?.fields?.name as string | undefined);
+  const displayAvatarUrl =
+    getDisplayableAvatarUrl(
+      profileDraft.avatar ?? (profile?.fields?.avatar as string | undefined),
+      ensNameForAvatar
+    );
   const shirtCarouselSlides = (): import("@/app/components/ImageCarousel").CarouselSlide[] => {
     if (drop) {
       const nft = drop.image_blob_id?.trim();
@@ -414,39 +439,47 @@ export default function ShirtPageContent({
   const claimTxDigest = mintTxDigest ?? shirt.claim_tx_digest ?? null;
 
   return (
-    <div className="min-h-screen bg-neutral-100 py-8 px-4">
-      <div className="max-w-md mx-auto space-y-6">
-        {/* Card: same for all three views */}
-        <div className="bg-white rounded-2xl border border-neutral-200 shadow-lg overflow-hidden">
-          <div className="aspect-square bg-neutral-100 flex items-center justify-center">
-            <ImageCarousel
-              slides={shirtCarouselSlides()}
-              alt={dropName}
-              className="w-full h-full"
-              imageClassName="w-full h-full object-contain"
-            />
-          </div>
+    <div className="min-h-screen py-8 px-4">
+      <div className="mx-auto max-w-2xl space-y-6">
+        {/* Back link */}
+        <button
+          type="button"
+          onClick={() => router.push(returnToPath)}
+          className="text-sm text-white/60 hover:text-white transition-colors"
+        >
+          ← Back
+        </button>
 
-          <div className="p-5 sm:p-6 space-y-4">
-            <h1 className="text-xl font-bold text-neutral-900 leading-tight">
-              {dropName}
-            </h1>
+        {/* Card: drop-page style — name + event, image, details */}
+        <div className="overflow-hidden rounded-xl shadow-xl">
+          <div className="bg-black border border-red-600/40 border-b-0 rounded-t-xl px-6 py-4 text-center">
+            <h1 className="text-2xl font-bold text-white">{dropName}</h1>
             {(drop?.company_name || drop?.event_name) && (
-              <p className="text-neutral-600 text-sm">
+              <p className="mt-1 text-white/80">
                 {[drop.company_name, drop.event_name]
                   .filter(Boolean)
                   .join(" · ")}
               </p>
             )}
-            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
-              <span className="font-medium text-neutral-800">
+          </div>
+          <div className="relative aspect-square bg-transparent flex items-center justify-center">
+            <ImageCarousel
+              slides={shirtCarouselSlides()}
+              alt={dropName}
+              className="max-h-[90%] max-w-[90%] w-full"
+              imageClassName="max-h-[90%] max-w-[90%] w-auto h-auto object-contain"
+            />
+          </div>
+          <div className="bg-black border border-red-600/40 border-t-0 rounded-b-xl px-6 py-4">
+            <div className="flex flex-wrap items-center gap-3">
+              <span className="rounded-full bg-red-600/20 px-3 py-1 text-xs font-medium text-red-400">
                 Serial #{shirt.serial ?? "—"}
               </span>
               {totalSupply > 0 && (
-                <span className="text-neutral-500">
+                <span className="text-sm text-white/70">
                   {mintedCount} of {totalSupply} minted
                   {remaining > 0 && (
-                    <span className="ml-1 font-medium text-emerald-600">
+                    <span className="ml-1 font-medium text-emerald-400">
                       · {remaining} left
                     </span>
                   )}
@@ -454,77 +487,78 @@ export default function ShirtPageContent({
               )}
             </div>
             {description && (
-              <p className="text-neutral-600 text-sm leading-relaxed">
+              <p className="mt-4 text-white/60 text-sm leading-relaxed">
                 {description}
               </p>
             )}
 
-            {/* View 1: Unminted — show Login + Mint */}
+            {/* Unminted: Login + Mint */}
             {viewUnminted && (
-              <>
-                {error ? <p className="text-red-600 text-sm">{error}</p> : null}
-                <div className="flex flex-col gap-3 pt-1">
-                  {!userAddress ? (
-                    <button
-                      type="button"
-                      onClick={handleLogin}
-                      className="w-full py-3.5 px-4 rounded-xl bg-neutral-900 text-white font-medium hover:bg-neutral-800 transition-colors"
-                    >
-                      Log in with Google (zkLogin)
-                    </button>
-                  ) : null}
+              <div className="mt-4 flex flex-col gap-3">
+                {error ? <p className="text-red-400 text-sm">{error}</p> : null}
+                {!userAddress ? (
                   <button
                     type="button"
-                    onClick={handleMint}
-                    disabled={!userAddress || minting}
-                    className="w-full py-3.5 px-4 rounded-xl bg-neutral-900 text-white font-medium hover:bg-neutral-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    onClick={handleLogin}
+                    className="w-full py-3.5 px-4 rounded-xl bg-red-600 text-white font-medium hover:bg-red-500 transition-colors"
                   >
-                    {minting ? "Minting…" : "Mint"}
+                    Log in with Google (zkLogin)
                   </button>
-                </div>
-              </>
+                ) : null}
+                <button
+                  type="button"
+                  onClick={handleMint}
+                  disabled={!userAddress || minting}
+                  className="w-full py-3.5 px-4 rounded-xl bg-red-600 text-white font-medium hover:bg-red-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  {minting ? "Minting…" : "Mint"}
+                </button>
+              </div>
             )}
-
-            {/* Minted: no Mint button inside card */}
           </div>
         </div>
 
         {/* Below card: for minted shirts only */}
         {shirt.is_minted && (
           <div className="space-y-4">
-            {/* Tx link — owner view only (or when we have digest) */}
+            {/* Tx link — owner view only */}
             {viewOwner && claimTxDigest && (
               <div className="text-center">
                 <a
                   href={explorerTxUrl(claimTxDigest)}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-sm font-medium text-neutral-700 underline hover:text-neutral-900"
+                  className="text-sm font-medium text-white/80 underline hover:text-white"
                 >
                   View mint transaction on Explorer
                 </a>
               </div>
             )}
 
-            {/* Owner line — both owner and non-owner */}
-            <p className="text-sm text-neutral-600 text-center">
-              Owner:{" "}
-              <span className="font-mono" title={shirt.owner ?? undefined}>
-                {shirt.owner ? shortenAddress(shirt.owner) : "—"}
-              </span>
-            </p>
+            {/* Ownership note — prominent block */}
+            <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-5 py-4 text-center">
+              <p className="text-sm font-medium text-emerald-200/90">
+                This tshirt is minted and now owned by{" "}
+                <span
+                  className="font-mono text-white font-semibold"
+                  title={shirt.owner ?? undefined}
+                >
+                  {shirt.owner ? shortenAddress(shirt.owner) : "—"}
+                </span>
+              </p>
+            </div>
 
-            {/* Owner / profile section */}
+            {/* Owner profile section — profile-style card */}
             {viewOwner && (
-              <div className="rounded-2xl border border-neutral-200 bg-white p-4 sm:p-5">
-                <div className="mb-3 flex items-center justify-between gap-2">
+              <div className="rounded-xl border border-white/10 bg-black/30 backdrop-blur-sm p-6 sm:p-8">
+                <div className="mb-6 flex items-center justify-between gap-2">
                   <div className="flex items-center gap-2">
-                    <h2 className="text-sm font-semibold text-neutral-900">
-                      About you
+                    <h2 className="text-lg font-semibold text-white">
+                      Your profile
                     </h2>
                     {profile?.ens_locked && profile.ens_name && (
-                      <span className="rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-medium text-blue-700">
-                        ENS-locked ({profile.ens_name})
+                      <span className="rounded-full bg-blue-500/20 px-2 py-0.5 text-xs font-medium text-blue-300">
+                        ENS ({profile.ens_name})
                       </span>
                     )}
                   </div>
@@ -532,42 +566,42 @@ export default function ShirtPageContent({
                     <button
                       type="button"
                       onClick={handleStartProfileEdit}
-                      className="text-xs font-medium text-neutral-600 hover:text-neutral-900"
+                      className="text-sm font-medium text-white/70 hover:text-white"
                     >
                       {profile ? "Edit" : "Add details"}
                     </button>
                   )}
                 </div>
                 {ensError ? (
-                  <p className="mb-1 text-xs text-red-600">{ensError}</p>
+                  <p className="mb-2 text-sm text-red-400">{ensError}</p>
                 ) : null}
                 {profileError ? (
-                  <p className="mb-2 text-xs text-red-600">{profileError}</p>
+                  <p className="mb-2 text-sm text-red-400">{profileError}</p>
                 ) : null}
                 {profileLoading && !profileEditing ? (
-                  <p className="text-xs text-neutral-500">Loading details…</p>
+                  <p className="text-sm text-white/50">Loading details…</p>
                 ) : null}
 
                 {hasEvmProvider() && profileEditing && (
-                  <div className="mb-3 flex items-center justify-between gap-2">
+                  <div className="mb-6 flex justify-center sm:justify-start">
                     <button
                       type="button"
                       onClick={handleConnectEns}
                       disabled={ensLoading}
-                      className="rounded-lg border border-neutral-300 px-3 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="rounded-lg border border-white/20 bg-white/10 px-4 py-2 text-sm font-medium text-white hover:bg-white/20 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       {ensLoading
                         ? "Connecting ENS…"
-                        : "Connect Ethereum wallet & load ENS"}
+                        : "Connect wallet & load ENS"}
                     </button>
                   </div>
                 )}
 
                 {profileEditing ? (
-                  <div className="space-y-3">
-                    {/* Avatar: tap to upload or change */}
-                    <div>
-                      <label className="mb-1 block text-xs font-medium text-neutral-600">
+                  <div className="space-y-5">
+                    {/* Avatar — centered, larger, clearly visible */}
+                    <div className="flex flex-col items-center">
+                      <label className="mb-3 text-sm font-medium text-white/80">
                         Profile picture
                       </label>
                       <input
@@ -581,15 +615,15 @@ export default function ShirtPageContent({
                         type="button"
                         onClick={() => avatarInputRef.current?.click()}
                         disabled={avatarUploading}
-                        className="h-16 w-16 shrink-0 overflow-hidden rounded-full bg-neutral-100 flex items-center justify-center cursor-pointer hover:ring-2 hover:ring-neutral-300 focus:outline-none focus:ring-2 focus:ring-neutral-400 disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="h-32 w-32 shrink-0 overflow-hidden rounded-full border-2 border-dashed border-white/50 bg-white/5 flex items-center justify-center cursor-pointer hover:border-white/70 hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-red-500/60 focus:ring-offset-2 focus:ring-offset-transparent disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         {avatarUploading ? (
-                          <span className="text-neutral-500 text-xs">
+                          <span className="text-white/70 text-sm px-2 text-center">
                             Uploading…
                           </span>
-                        ) : profileDraft.avatar?.trim() ? (
+                        ) : displayAvatarUrl ? (
                           <img
-                            src={profileDraft.avatar}
+                            src={displayAvatarUrl}
                             alt=""
                             className="h-full w-full object-cover"
                             onError={(e) => {
@@ -598,38 +632,40 @@ export default function ShirtPageContent({
                             }}
                           />
                         ) : (
-                          <span className="text-neutral-400 text-xs">
-                            Tap to upload
+                          <span className="text-white/70 text-sm px-2 text-center">
+                            + Add photo
                           </span>
                         )}
                       </button>
                     </div>
-                    {[
-                      ["name", "Name"],
-                      ["company", "Company"],
-                      ["role", "Role"],
-                      ["telegram", "Telegram"],
-                      ["twitter", "Twitter"],
-                      ["email", "Email"],
-                      ["website", "Website"],
-                      ["github", "GitHub"],
-                    ].map(([key, label]) => (
-                      <div key={key}>
-                        <label className="mb-1 block text-xs font-medium text-neutral-600">
-                          {label}
-                        </label>
-                        <input
-                          type="text"
-                          value={profileDraft[key] ?? ""}
-                          onChange={(e) =>
-                            handleProfileFieldChange(key, e.target.value)
-                          }
-                          className="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm text-neutral-900 placeholder:text-neutral-400 focus:border-neutral-400 focus:outline-none"
-                        />
-                      </div>
-                    ))}
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      {[
+                        ["name", "Name"],
+                        ["company", "Company"],
+                        ["role", "Role"],
+                        ["telegram", "Telegram"],
+                        ["twitter", "Twitter"],
+                        ["email", "Email"],
+                        ["website", "Website"],
+                        ["github", "GitHub"],
+                      ].map(([key, label]) => (
+                        <div key={key}>
+                          <label className="mb-1 block text-sm font-medium text-white/70">
+                            {label}
+                          </label>
+                          <input
+                            type="text"
+                            value={profileDraft[key] ?? ""}
+                            onChange={(e) =>
+                              handleProfileFieldChange(key, e.target.value)
+                            }
+                            className="w-full rounded-lg border border-white/20 bg-black/40 px-3 py-2.5 text-sm text-white placeholder-white/40 focus:border-red-500/50 focus:outline-none focus:ring-1 focus:ring-red-500/50"
+                          />
+                        </div>
+                      ))}
+                    </div>
                     <div>
-                      <label className="mb-1 block text-xs font-medium text-neutral-600">
+                      <label className="mb-1 block text-sm font-medium text-white/70">
                         Description
                       </label>
                       <textarea
@@ -641,10 +677,10 @@ export default function ShirtPageContent({
                           )
                         }
                         rows={3}
-                        className="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm text-neutral-900 placeholder:text-neutral-400 focus:border-neutral-400 focus:outline-none"
+                        className="w-full rounded-lg border border-white/20 bg-black/40 px-3 py-2.5 text-sm text-white placeholder-white/40 focus:border-red-500/50 focus:outline-none focus:ring-1 focus:ring-red-500/50"
                       />
                     </div>
-                    {/* Extra fields from ENS (e.g. ens:com.discord) or custom */}
+                    {/* Extra fields from ENS */}
                     {(() => {
                       const standardKeys = new Set([
                         "name",
@@ -664,35 +700,37 @@ export default function ShirtPageContent({
                       if (extras.length === 0) return null;
                       return (
                         <>
-                          <p className="text-xs font-medium text-neutral-600 pt-1">
+                          <p className="text-sm font-medium text-white/70 pt-2">
                             Other details
                           </p>
-                          {extras.map(([key, value]) => (
-                            <div key={key}>
-                              <label className="mb-1 block text-xs font-medium text-neutral-600">
-                                {key.startsWith("ens:") ? key.slice(4) : key}
-                              </label>
-                              <input
-                                type="text"
-                                value={value ?? ""}
-                                onChange={(e) =>
-                                  handleProfileFieldChange(key, e.target.value)
-                                }
-                                className="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm text-neutral-900 placeholder:text-neutral-400 focus:border-neutral-400 focus:outline-none"
-                              />
-                            </div>
-                          ))}
+                          <div className="grid gap-4 sm:grid-cols-2">
+                            {extras.map(([key, value]) => (
+                              <div key={key}>
+                                <label className="mb-1 block text-sm font-medium text-white/70">
+                                  {key.startsWith("ens:") ? key.slice(4) : key}
+                                </label>
+                                <input
+                                  type="text"
+                                  value={value ?? ""}
+                                  onChange={(e) =>
+                                    handleProfileFieldChange(key, e.target.value)
+                                  }
+                                  className="w-full rounded-lg border border-white/20 bg-black/40 px-3 py-2.5 text-sm text-white placeholder-white/40 focus:border-red-500/50 focus:outline-none"
+                                />
+                              </div>
+                            ))}
+                          </div>
                         </>
                       );
                     })()}
-                    <div className="flex justify-end gap-2 pt-1">
+                    <div className="flex justify-end gap-3 pt-2">
                       <button
                         type="button"
                         onClick={() => {
                           setProfileEditing(false);
                           setProfileError(null);
                         }}
-                        className="rounded-lg border border-neutral-200 px-3 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-50"
+                        className="rounded-lg border border-white/20 bg-white/10 px-4 py-2 text-sm font-medium text-white hover:bg-white/20"
                       >
                         Cancel
                       </button>
@@ -700,7 +738,7 @@ export default function ShirtPageContent({
                         type="button"
                         onClick={handleSaveProfile}
                         disabled={profileLoading}
-                        className="rounded-lg bg-neutral-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-neutral-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-500 disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         {profileLoading ? "Saving…" : "Save"}
                       </button>
@@ -710,21 +748,26 @@ export default function ShirtPageContent({
                   profile.fields &&
                   Object.keys(profile.fields).length > 0 ? (
                   <>
-                    {typeof profile.fields.avatar === "string" &&
-                      profile.fields.avatar.trim() !== "" && (
-                        <div className="mb-3 flex justify-center">
+                    {(() => {
+                      const ownerAvatarUrl = getDisplayableAvatarUrl(
+                        profile.fields?.avatar as string | undefined,
+                        profile.ens_name ?? (profile.fields?.name as string | undefined)
+                      );
+                      return ownerAvatarUrl ? (
+                        <div className="mb-6 flex justify-center">
                           <img
-                            src={profile.fields.avatar}
+                            src={ownerAvatarUrl}
                             alt=""
-                            className="h-20 w-20 rounded-full object-cover bg-neutral-100"
+                            className="h-28 w-28 rounded-full object-cover border-2 border-white/10 bg-black/40"
                             onError={(e) => {
                               (e.target as HTMLImageElement).style.display =
                                 "none";
                             }}
                           />
                         </div>
-                      )}
-                    <dl className="space-y-1.5 text-xs text-neutral-700">
+                      ) : null;
+                    })()}
+                    <dl className="space-y-3 text-sm">
                       {Object.entries(profile.fields).map(([key, value]) => {
                         if (key === "avatar" || value == null || value === "")
                           return null;
@@ -732,11 +775,11 @@ export default function ShirtPageContent({
                           key.charAt(0).toUpperCase() +
                           key.slice(1).replace(/^Ens:/, "");
                         return (
-                          <div key={key} className="flex gap-2">
-                            <dt className="w-20 shrink-0 text-neutral-500">
+                          <div key={key} className="flex gap-3 border-b border-white/10 pb-3 last:border-0 last:pb-0">
+                            <dt className="w-24 shrink-0 text-white/60">
                               {label}
                             </dt>
-                            <dd className="flex-1 break-words">
+                            <dd className="flex-1 break-words text-white/90">
                               {key === "website" &&
                               typeof value === "string" ? (
                                 <a
@@ -747,7 +790,7 @@ export default function ShirtPageContent({
                                   }
                                   target="_blank"
                                   rel="noopener noreferrer"
-                                  className="underline hover:text-neutral-900"
+                                  className="underline hover:text-white"
                                 >
                                   {value}
                                 </a>
@@ -761,8 +804,8 @@ export default function ShirtPageContent({
                     </dl>
                   </>
                 ) : (
-                  <p className="text-xs text-neutral-500">
-                    No details added yet.
+                  <p className="text-sm text-white/50">
+                    No details added yet. Click &quot;Add details&quot; to add your name, avatar, and links.
                   </p>
                 )}
               </div>
@@ -773,25 +816,30 @@ export default function ShirtPageContent({
               profile &&
               profile.fields &&
               Object.keys(profile.fields).length > 0 && (
-                <div className="rounded-2xl border border-neutral-200 bg-white p-4 sm:p-5">
-                  <h2 className="mb-3 text-sm font-semibold text-neutral-900">
+                <div className="rounded-xl border border-white/10 bg-black/30 backdrop-blur-sm p-6 sm:p-8">
+                  <h2 className="mb-6 text-lg font-semibold text-white text-center">
                     About the owner
                   </h2>
-                  {typeof profile.fields.avatar === "string" &&
-                    profile.fields.avatar.trim() !== "" && (
-                      <div className="mb-3 flex justify-center">
+                  {(() => {
+                    const ownerAvatarUrl = getDisplayableAvatarUrl(
+                      profile.fields?.avatar as string | undefined,
+                      profile.ens_name ?? (profile.fields?.name as string | undefined)
+                    );
+                    return ownerAvatarUrl ? (
+                      <div className="mb-6 flex justify-center">
                         <img
-                          src={profile.fields.avatar as string}
+                          src={ownerAvatarUrl}
                           alt=""
-                          className="h-20 w-20 rounded-full object-cover bg-neutral-100"
+                          className="h-28 w-28 rounded-full object-cover border-2 border-white/10 bg-black/40"
                           onError={(e) => {
                             (e.target as HTMLImageElement).style.display =
                               "none";
                           }}
                         />
                       </div>
-                    )}
-                  <dl className="space-y-1.5 text-xs text-neutral-700">
+                    ) : null;
+                  })()}
+                  <dl className="space-y-3 text-sm">
                     {Object.entries(profile.fields).map(([key, value]) => {
                       if (key === "avatar" || value == null || value === "")
                         return null;
@@ -800,23 +848,23 @@ export default function ShirtPageContent({
                         key.slice(1).replace(/^Ens:/, "");
                       const strVal = String(value);
                       return (
-                        <div key={key} className="flex gap-2">
-                          <dt className="w-20 shrink-0 text-neutral-500">
+                        <div key={key} className="flex gap-3 border-b border-white/10 pb-3 last:border-0 last:pb-0">
+                          <dt className="w-24 shrink-0 text-white/60">
                             {label}
                           </dt>
-                          <dd className="flex-1 break-words">
+                          <dd className="flex-1 break-words text-white/90">
                             {key === "website" && typeof value === "string" ? (
                               <a
                                 href={
-                                  value.startsWith("http")
-                                    ? value
-                                    : `https://${value}`
+                                  strVal.startsWith("http")
+                                    ? strVal
+                                    : `https://${strVal}`
                                 }
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="underline hover:text-neutral-900"
+                                className="underline hover:text-white"
                               >
-                                {value}
+                                {strVal}
                               </a>
                             ) : (
                               strVal

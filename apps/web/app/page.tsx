@@ -46,13 +46,15 @@ function DropCard({ drop }: { drop: DropRow }) {
       href={`/drops/${encodeURIComponent(drop.object_id)}`}
       className="group block overflow-hidden rounded-xl shadow-xl transition hover:shadow-red-600/20"
     >
-      <div className="relative aspect-square bg-transparent">
-        <ImageCarousel
-          slides={carouselSlides}
-          alt={drop.name}
-          className="h-full w-full p-2"
-          imageClassName="h-full w-full object-contain"
-        />
+      <div className="relative aspect-square overflow-hidden bg-transparent">
+        <div className="h-full w-full transition-transform duration-300 ease-out group-hover:scale-[1.2]">
+          <ImageCarousel
+            slides={carouselSlides}
+            alt={drop.name}
+            className="h-full w-full p-2"
+            imageClassName="h-full w-full object-contain"
+          />
+        </div>
       </div>
       <div className="p-4 bg-black border-x border-b border-red-600/40 rounded-b-xl">
         <h3 className="font-semibold text-white truncate">{drop.name}</h3>
