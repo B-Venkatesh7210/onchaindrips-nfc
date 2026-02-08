@@ -611,7 +611,7 @@ export async function openYellowSession(
 
   log("openYellowSession", `Starting for ${userAddress.slice(0, 10)}…, deposit=$${depositAmountUsd}`);
 
-  let channelId: string | undefined = getStoredChannelId(userAddress);
+  let channelId: string | undefined = getStoredChannelId(userAddress) ?? undefined;
   if (channelId) {
     log("openYellowSession", `Using stored channel: ${channelId.slice(0, 14)}…`);
   }

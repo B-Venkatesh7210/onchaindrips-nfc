@@ -6,6 +6,7 @@ import type { PublicKey } from "@mysten/sui/cryptography";
 import { Ed25519Keypair } from "@mysten/sui/keypairs/ed25519";
 import { generateNonce, generateRandomness } from "@mysten/zklogin";
 import { jwtDecode } from "jwt-decode";
+import type { ZkProof } from "./zklogin-proof";
 import { ZKLOGIN_CONFIG } from "./zklogin-config";
 
 /**
@@ -145,7 +146,7 @@ export function storeZkLoginSession(data: {
   randomness: string;
   jwtToken?: string;
   userSalt?: string;
-  zkProof?: string;
+  zkProof?: ZkProof;
   userAddress?: string;
 }): void {
   if (typeof window === "undefined") return;

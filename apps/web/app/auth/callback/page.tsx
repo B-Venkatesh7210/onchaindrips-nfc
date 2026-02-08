@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { completeZkLogin, getUserInfo } from "@/lib/auth";
 import { getAndClearReturnTo } from "@/lib/zklogin-utils";
 import { upsertUser } from "@/lib/api";
@@ -12,7 +12,6 @@ import { upsertUser } from "@/lib/api";
  */
 export default function AuthCallbackPage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const [status, setStatus] = useState<"processing" | "success" | "error">("processing");
   const [error, setError] = useState<string>("");
 
@@ -60,7 +59,7 @@ export default function AuthCallbackPage() {
     }
 
     handleCallback();
-  }, [router, searchParams]);
+  }, [router]);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50">
