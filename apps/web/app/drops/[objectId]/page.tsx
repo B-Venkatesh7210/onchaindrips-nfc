@@ -47,7 +47,9 @@ export default function DropDetailPage() {
   const [bidsError, setBidsError] = useState<string | null>(null);
 
   const [evmAddress, setEvmAddress] = useState<string | null>(null);
-  const [yellowSession, setYellowSession] = useState<YellowSession | null>(null);
+  const [yellowSession, setYellowSession] = useState<YellowSession | null>(
+    null
+  );
   const [yellowError, setYellowError] = useState<string | null>(null);
   const [connectingYellow, setConnectingYellow] = useState(false);
   const [toppingUp, setToppingUp] = useState(false);
@@ -70,7 +72,9 @@ export default function DropDetailPage() {
     storedAddress.toLowerCase().trim() === ADMIN_ADDRESS.toLowerCase().trim();
 
   const [adminSummaryLoading, setAdminSummaryLoading] = useState(false);
-  const [adminSummaryError, setAdminSummaryError] = useState<string | null>(null);
+  const [adminSummaryError, setAdminSummaryError] = useState<string | null>(
+    null
+  );
   const [adminWinners, setAdminWinners] = useState<
     { evm_address: string; bid_amount_usd: number; rank: number }[]
   >([]);
@@ -103,7 +107,7 @@ export default function DropDetailPage() {
       setBids(bids);
     } catch (e) {
       setBidsError(
-        e instanceof Error ? e.message : "Failed to load bids for this drop",
+        e instanceof Error ? e.message : "Failed to load bids for this drop"
       );
     } finally {
       setBidsLoading(false);
@@ -121,15 +125,23 @@ export default function DropDetailPage() {
   // When bidding closed and user is a loser: add bid amount back to balance (once)
   useEffect(() => {
     if (!objectId || !evmAddress || !drop?.bidding_closed) return;
-    const myBidResult = bids.find((b) => b.evm_address.toLowerCase() === evmAddress.toLowerCase());
+    const myBidResult = bids.find(
+      (b) => b.evm_address.toLowerCase() === evmAddress.toLowerCase()
+    );
     if (myBidResult?.status !== "lost" || !useYellowSandbox()) return;
     if (getLoserRefunded(objectId, evmAddress)) return;
     const refundAmount = myBidResult.bid_amount_usd;
     addYellowBalance(evmAddress, refundAmount);
     setLoserRefunded(objectId, evmAddress);
     const newBal = getStoredYellowBalance(evmAddress);
-    setStoredEvmSession({ evmAddress, depositedUsd: newBal, channelId: getStoredChannelId(evmAddress) ?? undefined });
-    setYellowSession((prev) => (prev ? { ...prev, depositedUsd: newBal } : null));
+    setStoredEvmSession({
+      evmAddress,
+      depositedUsd: newBal,
+      channelId: getStoredChannelId(evmAddress) ?? undefined,
+    });
+    setYellowSession((prev) =>
+      prev ? { ...prev, depositedUsd: newBal } : null
+    );
   }, [objectId, evmAddress, drop?.bidding_closed, bids]);
 
   // Auto-restore Yellow session when navigating to this drop (wallet already connected on another drop)
@@ -137,21 +149,39 @@ export default function DropDetailPage() {
     if (!hasEvmProvider() || evmAddress || connectingYellow) return;
     const stored = getStoredEvmSession();
     if (!stored) return;
-    const ethereum = (window as { ethereum?: { request: (a: { method: string; params?: unknown[] }) => Promise<unknown> } }).ethereum;
+    const ethereum = (
+      window as {
+        ethereum?: {
+          request: (a: {
+            method: string;
+            params?: unknown[];
+          }) => Promise<unknown>;
+        };
+      }
+    ).ethereum;
     if (!ethereum) return;
-    ethereum.request({ method: "eth_accounts" }).then((accounts: unknown) => {
-      const addrs = Array.isArray(accounts) ? accounts as string[] : [];
-      const current = addrs[0];
-      if (!current || current.toLowerCase() !== stored.evmAddress.toLowerCase()) return;
-      setEvmAddress(stored.evmAddress);
-      const balance = useYellowSandbox() ? getStoredYellowBalance(stored.evmAddress) : stored.depositedUsd;
-      setYellowSession({
-        userAddress: stored.evmAddress,
-        appId: "onchaindrips-nfc-bidding",
-        depositedUsd: balance,
-        channelId: stored.channelId,
-      });
-    }).catch(() => {});
+    ethereum
+      .request({ method: "eth_accounts" })
+      .then((accounts: unknown) => {
+        const addrs = Array.isArray(accounts) ? (accounts as string[]) : [];
+        const current = addrs[0];
+        if (
+          !current ||
+          current.toLowerCase() !== stored.evmAddress.toLowerCase()
+        )
+          return;
+        setEvmAddress(stored.evmAddress);
+        const balance = useYellowSandbox()
+          ? getStoredYellowBalance(stored.evmAddress)
+          : stored.depositedUsd;
+        setYellowSession({
+          userAddress: stored.evmAddress,
+          appId: "onchaindrips-nfc-bidding",
+          depositedUsd: balance,
+          channelId: stored.channelId,
+        });
+      })
+      .catch(() => {});
   }, [evmAddress, connectingYellow]);
 
   const handleConnectYellow = useCallback(async () => {
@@ -165,15 +195,21 @@ export default function DropDetailPage() {
       }
       const addr = await connectYellowWallet();
       setEvmAddress(addr);
-      const initialDeposit = Number(bidAmountInput) > 0 ? Number(bidAmountInput) : 10;
+      const initialDeposit =
+        Number(bidAmountInput) > 0 ? Number(bidAmountInput) : 10;
       const session = await openYellowSession(addr, 10, (step) =>
         setYellowStep(step)
       );
       setYellowSession(session);
-      setStoredEvmSession({ evmAddress: addr, depositedUsd: session.depositedUsd, channelId: session.channelId });
+      setStoredEvmSession({
+        evmAddress: addr,
+        depositedUsd: session.depositedUsd,
+        channelId: session.channelId,
+      });
     } catch (e) {
       failed = true;
-      const msg = e instanceof Error ? e.message : "Failed to start Yellow session";
+      const msg =
+        e instanceof Error ? e.message : "Failed to start Yellow session";
       setYellowError(msg);
       setYellowStep(`Failed: ${msg}`);
     } finally {
@@ -206,7 +242,8 @@ export default function DropDetailPage() {
   const handleReleaseFunds = useCallback(async () => {
     if (!evmAddress || !drop?.reservation_evm_recipient) return;
     const organizer = drop.reservation_evm_recipient.trim();
-    const channelId = yellowSession?.channelId ?? getStoredChannelId(evmAddress);
+    const channelId =
+      yellowSession?.channelId ?? getStoredChannelId(evmAddress);
     if (!channelId) {
       setYellowError("No Yellow channel found. You may have cleared storage.");
       return;
@@ -217,7 +254,9 @@ export default function DropDetailPage() {
       await closeYellowChannel(evmAddress, channelId, organizer);
       await loadBids();
     } catch (e) {
-      setYellowError(e instanceof Error ? e.message : "Failed to release funds");
+      setYellowError(
+        e instanceof Error ? e.message : "Failed to release funds"
+      );
     } finally {
       setReleasingFunds(false);
     }
@@ -251,13 +290,16 @@ export default function DropDetailPage() {
       setMyRank(res.rank);
       setReservationSlots(res.reservation_slots);
       // Update displayed Yellow balance: deduct bid amount immediately
-      const previousBidAmount = bids.find(
-        (b) => b.evm_address.toLowerCase() === evmAddress.toLowerCase(),
-      )?.bid_amount_usd ?? 0;
+      const previousBidAmount =
+        bids.find(
+          (b) => b.evm_address.toLowerCase() === evmAddress.toLowerCase()
+        )?.bid_amount_usd ?? 0;
       const delta = amount - previousBidAmount;
-      const newBalance = yellowSession ? Math.max(0, yellowSession.depositedUsd - delta) : 0;
+      const newBalance = yellowSession
+        ? Math.max(0, yellowSession.depositedUsd - delta)
+        : 0;
       setYellowSession((prev) =>
-        prev ? { ...prev, depositedUsd: newBalance } : null,
+        prev ? { ...prev, depositedUsd: newBalance } : null
       );
       if (useYellowSandbox()) {
         const current = getStoredYellowBalance(evmAddress);
@@ -271,12 +313,21 @@ export default function DropDetailPage() {
       await loadBids();
     } catch (e) {
       setYellowError(
-        e instanceof Error ? e.message : "Failed to place bid with Yellow",
+        e instanceof Error ? e.message : "Failed to place bid with Yellow"
       );
     } finally {
       setPlacingBid(false);
     }
-  }, [drop, objectId, yellowSession, evmAddress, bidAmountInput, mySize, bids, loadBids]);
+  }, [
+    drop,
+    objectId,
+    yellowSession,
+    evmAddress,
+    bidAmountInput,
+    mySize,
+    bids,
+    loadBids,
+  ]);
 
   const handleAdminLoadSummary = useCallback(async () => {
     if (!isAdmin || !objectId || !storedAddress) return;
@@ -288,12 +339,12 @@ export default function DropDetailPage() {
       setAdminLosers(summary.losers);
       const totalWinning = summary.winners.reduce(
         (acc, w) => acc + Number(w.bid_amount_usd),
-        0,
+        0
       );
       setAdminTotalWinningUsd(totalWinning);
     } catch (e) {
       setAdminSummaryError(
-        e instanceof Error ? e.message : "Failed to load bid summary",
+        e instanceof Error ? e.message : "Failed to load bid summary"
       );
     } finally {
       setAdminSummaryLoading(false);
@@ -306,7 +357,7 @@ export default function DropDetailPage() {
     const organizer = drop.reservation_evm_recipient?.trim();
     if (!organizer) {
       setAdminSummaryError(
-        "reservation_evm_recipient is not set for this drop; cannot settle.",
+        "reservation_evm_recipient is not set for this drop; cannot settle."
       );
       return;
     }
@@ -327,7 +378,7 @@ export default function DropDetailPage() {
       await load();
     } catch (e) {
       setAdminSummaryError(
-        e instanceof Error ? e.message : "Failed to settle bids via Yellow",
+        e instanceof Error ? e.message : "Failed to settle bids via Yellow"
       );
     } finally {
       setAdminSettlementRunning(false);
@@ -347,7 +398,12 @@ export default function DropDetailPage() {
     return (
       <div className="mx-auto max-w-2xl px-4 py-8">
         <p className="text-white/70">Invalid drop.</p>
-        <Link href="/" className="mt-4 inline-block text-sm text-white/60 hover:text-white">← Home</Link>
+        <Link
+          href="/drops"
+          className="mt-4 inline-block text-sm text-white/60 hover:text-white"
+        >
+          ← Drops
+        </Link>
       </div>
     );
   }
@@ -365,7 +421,12 @@ export default function DropDetailPage() {
     return (
       <div className="mx-auto max-w-2xl px-4 py-8">
         <p className="text-white/70">Drop not found.</p>
-        <Link href="/" className="mt-4 inline-block text-sm text-white/60 hover:text-white">← Home</Link>
+        <Link
+          href="/drops"
+          className="mt-4 inline-block text-sm text-white/60 hover:text-white"
+        >
+          ← Drops
+        </Link>
       </div>
     );
   }
@@ -390,27 +451,30 @@ export default function DropDetailPage() {
     if (/^https?:\/\//i.test(v)) return v;
     return `/api/walrus/${encodeURIComponent(v)}`;
   };
-  const dropCarouselSlides = (): import("@/app/components/ImageCarousel").CarouselSlide[] => {
-    const nft = drop.image_blob_id?.trim();
-    const u1 = drop.uploaded_image_1?.trim();
-    const u2 = drop.uploaded_image_2?.trim();
-    const slide1 = nft
-      ? u1
-        ? { primary: toImageUrl(nft), fallback: toImageUrl(u1) }
-        : toImageUrl(nft)
-      : u1
+  const dropCarouselSlides =
+    (): import("@/app/components/ImageCarousel").CarouselSlide[] => {
+      const nft = drop.image_blob_id?.trim();
+      const u1 = drop.uploaded_image_1?.trim();
+      const u2 = drop.uploaded_image_2?.trim();
+      const slide1 = nft
+        ? u1
+          ? { primary: toImageUrl(nft), fallback: toImageUrl(u1) }
+          : toImageUrl(nft)
+        : u1
         ? toImageUrl(u1)
         : null;
-    const slide2 = u2 ? toImageUrl(u2) : null;
-    return [slide1, slide2].filter(Boolean) as import("@/app/components/ImageCarousel").CarouselSlide[];
-  };
+      const slide2 = u2 ? toImageUrl(u2) : null;
+      return [slide1, slide2].filter(
+        Boolean
+      ) as import("@/app/components/ImageCarousel").CarouselSlide[];
+    };
   const btnClass =
     "bg-red-600 hover:bg-red-700 text-white shadow-[0_0_16px_0_rgba(220,38,38,0.6)] hover:shadow-[0_0_32px_4px_rgba(220,38,38,0.8)]";
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-8 space-y-6">
       <Link
-        href="/"
+        href="/drops"
         className="text-sm text-white/60 hover:text-white transition-colors"
       >
         ← Back to drops
@@ -453,7 +517,9 @@ export default function DropDetailPage() {
           </div>
           {hasSizeInfo && (
             <p className="mt-3 text-xs text-white/60">
-              <span className="font-medium text-white/80">Available sizes:</span>{" "}
+              <span className="font-medium text-white/80">
+                Available sizes:
+              </span>{" "}
               {sizeInfo
                 .filter((s) => s.value && s.value > 0)
                 .map((s) => `${s.label} (${s.value})`)
@@ -464,14 +530,14 @@ export default function DropDetailPage() {
             (drop.offchain_attributes &&
             typeof drop.offchain_attributes === "object" &&
             "description" in drop.offchain_attributes
-              ? (drop.offchain_attributes as { description?: string }).description
+              ? (drop.offchain_attributes as { description?: string })
+                  .description
               : null)) && (
             <p className="mt-4 text-white/60 text-sm whitespace-pre-wrap">
               {String(
                 drop.description ??
-                  (
-                    (drop.offchain_attributes as { description?: string }) ?? {}
-                  ).description ??
+                  ((drop.offchain_attributes as { description?: string }) ?? {})
+                    .description ??
                   ""
               )}
             </p>
@@ -492,9 +558,10 @@ export default function DropDetailPage() {
               </span>
             </div>
             <p className="text-sm text-white/70">
-              Bids use Yellow Network on Sepolia with ytest.usd. Connect your EVM wallet,
-              request test tokens from the faucet, fund your channel, then place your bid.
-              No gas for bidding—winners sign to release funds at settlement. Rabby wallet recommended.
+              Bids use Yellow Network on Sepolia with ytest.usd. Connect your
+              EVM wallet, request test tokens from the faucet, fund your
+              channel, then place your bid. No gas for bidding—winners sign to
+              release funds at settlement. Rabby wallet recommended.
             </p>
 
             {yellowError && (
@@ -528,7 +595,9 @@ export default function DropDetailPage() {
                 <>
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <div>
-                      <p className="text-xs font-medium text-white/60 uppercase tracking-wider">Connected</p>
+                      <p className="text-xs font-medium text-white/60 uppercase tracking-wider">
+                        Connected
+                      </p>
                       <p className="font-mono text-sm text-white/90">
                         {evmAddress
                           ? `${evmAddress.slice(0, 6)}…${evmAddress.slice(-4)}`
@@ -536,12 +605,16 @@ export default function DropDetailPage() {
                       </p>
                     </div>
                     <div className="rounded-lg bg-red-600/20 border border-red-600/40 px-4 py-2 text-center min-w-[100px]">
-                      <p className="text-[10px] uppercase tracking-wider text-red-400/90">Balance</p>
+                      <p className="text-[10px] uppercase tracking-wider text-red-400/90">
+                        Balance
+                      </p>
                       <p className="text-lg font-bold text-white">
                         ${yellowSession.depositedUsd.toFixed(2)}
                       </p>
                       {yellowSession.channelId && (
-                        <p className="text-[10px] text-emerald-400/80">channel funded</p>
+                        <p className="text-[10px] text-emerald-400/80">
+                          channel funded
+                        </p>
                       )}
                     </div>
                   </div>
@@ -568,7 +641,9 @@ export default function DropDetailPage() {
 
             {hasPlacedBid ? (
               <div className="rounded-lg border border-emerald-500/40 bg-emerald-950/30 px-4 py-3">
-                <p className="text-sm font-medium text-emerald-400">Already bid placed</p>
+                <p className="text-sm font-medium text-emerald-400">
+                  Already bid placed
+                </p>
                 <p className="mt-0.5 text-xs text-white/70">
                   Your bid: ${myBid?.bid_amount_usd?.toFixed(2) ?? "—"}
                   {myBid?.size ? ` · Size ${myBid.size}` : ""}
@@ -595,8 +670,14 @@ export default function DropDetailPage() {
                   />
                 </div>
                 <div>
-                  <label className="mb-2 block text-sm font-medium text-white/90">Size</label>
-                  <div className="flex flex-wrap gap-2" role="group" aria-label="Select shirt size">
+                  <label className="mb-2 block text-sm font-medium text-white/90">
+                    Size
+                  </label>
+                  <div
+                    className="flex flex-wrap gap-2"
+                    role="group"
+                    aria-label="Select shirt size"
+                  >
                     {(["S", "M", "L", "XL", "XXL"] as const).map((size) => {
                       const info = sizeInfo.find((s) => s.label === size);
                       const available = !hasSizeInfo || (info?.value ?? 0) > 0;
@@ -609,9 +690,10 @@ export default function DropDetailPage() {
                           disabled={!available}
                           className={`
                             min-w-[3rem] rounded-lg px-4 py-3 text-sm font-semibold transition-all
-                            ${isSelected
-                              ? "border-2 border-red-500 bg-red-600/30 text-white shadow-[0_0_12px_rgba(220,38,38,0.4)]"
-                              : available
+                            ${
+                              isSelected
+                                ? "border-2 border-red-500 bg-red-600/30 text-white shadow-[0_0_12px_rgba(220,38,38,0.4)]"
+                                : available
                                 ? "border border-red-600/40 bg-black/60 text-white/90 hover:border-red-500/60 hover:bg-red-950/40 hover:text-white"
                                 : "cursor-not-allowed border border-white/10 bg-black/30 text-white/40"
                             }
@@ -619,7 +701,11 @@ export default function DropDetailPage() {
                         >
                           <span>{size}</span>
                           {hasSizeInfo && info && (
-                            <span className={`ml-1 text-[10px] font-normal ${available ? "text-white/60" : ""}`}>
+                            <span
+                              className={`ml-1 text-[10px] font-normal ${
+                                available ? "text-white/60" : ""
+                              }`}
+                            >
                               ({info.value})
                             </span>
                           )}
@@ -639,10 +725,14 @@ export default function DropDetailPage() {
                 {(myRank || reservationSlots) && (
                   <p className="text-xs text-white/60 text-center">
                     {myRank
-                      ? `Your rank: #${myRank}${reservationSlots ? ` (top ${reservationSlots} win)` : ""}`
+                      ? `Your rank: #${myRank}${
+                          reservationSlots
+                            ? ` (top ${reservationSlots} win)`
+                            : ""
+                        }`
                       : reservationSlots
-                        ? `Top ${reservationSlots} bidders will win a reservation.`
-                        : null}
+                      ? `Top ${reservationSlots} bidders will win a reservation.`
+                      : null}
                   </p>
                 )}
               </div>
@@ -650,7 +740,9 @@ export default function DropDetailPage() {
 
             {/* Live leaderboard */}
             <div className="border-t border-red-600/20 pt-4">
-              <h3 className="text-sm font-semibold text-white mb-3">Live leaderboard</h3>
+              <h3 className="text-sm font-semibold text-white mb-3">
+                Live leaderboard
+              </h3>
               {bidsLoading ? (
                 <p className="text-xs text-white/50">Loading bids…</p>
               ) : bidsError ? (
@@ -671,12 +763,15 @@ export default function DropDetailPage() {
                     <div
                       key={`${b.evm_address}-${b.created_at}`}
                       className={`grid grid-cols-[auto_1fr_auto_auto] gap-3 px-4 py-2.5 text-sm border-t border-red-600/10 ${
-                        evmAddress?.toLowerCase() === b.evm_address.toLowerCase()
+                        evmAddress?.toLowerCase() ===
+                        b.evm_address.toLowerCase()
                           ? "bg-red-600/10"
                           : ""
                       }`}
                     >
-                      <span className="font-mono font-semibold text-red-400">#{b.rank}</span>
+                      <span className="font-mono font-semibold text-red-400">
+                        #{b.rank}
+                      </span>
                       <span className="font-mono text-white/90 truncate">
                         {b.evm_address.slice(0, 6)}…{b.evm_address.slice(-4)}
                       </span>
@@ -688,7 +783,8 @@ export default function DropDetailPage() {
                   ))}
                   {bids.length > 10 && (
                     <div className="px-4 py-2 text-xs text-white/50 border-t border-red-600/10">
-                      + {bids.length - 10} more bidder{bids.length - 10 === 1 ? "" : "s"}
+                      + {bids.length - 10} more bidder
+                      {bids.length - 10 === 1 ? "" : "s"}
                     </div>
                   )}
                 </div>
@@ -697,7 +793,12 @@ export default function DropDetailPage() {
 
             <p className="text-[10px] text-white/40 text-center">
               Yellow Network · Sepolia · ytest.usd ·{" "}
-              <a href="https://yellow.org" target="_blank" rel="noopener noreferrer" className="underline hover:text-white/60">
+              <a
+                href="https://yellow.org"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="underline hover:text-white/60"
+              >
                 yellow.org
               </a>
             </p>
@@ -723,8 +824,9 @@ export default function DropDetailPage() {
               </button>
             </div>
             <p className="text-xs text-white/60">
-              Preview reads bids from Supabase. Settlement: 1) updates DB (winners marked, bidding closed),
-              2) each winner signs in their browser via Yellow Network to release funds to the organizer.
+              Preview reads bids from Supabase. Settlement: 1) updates DB
+              (winners marked, bidding closed), 2) each winner signs in their
+              browser via Yellow Network to release funds to the organizer.
             </p>
             {adminSummaryError && (
               <div className="rounded-lg border border-red-500/40 bg-red-950/40 px-4 py-3">
@@ -740,7 +842,10 @@ export default function DropDetailPage() {
                     {adminTotalWinningUsd.toFixed(2)} to{" "}
                     <span className="font-mono text-xs">
                       {drop.reservation_evm_recipient
-                        ? `${drop.reservation_evm_recipient.slice(0, 6)}…${drop.reservation_evm_recipient.slice(-4)}`
+                        ? `${drop.reservation_evm_recipient.slice(
+                            0,
+                            6
+                          )}…${drop.reservation_evm_recipient.slice(-4)}`
                         : "not set"}
                     </span>
                   </p>
@@ -755,11 +860,15 @@ export default function DropDetailPage() {
                         key={`${w.evm_address}-${w.rank}`}
                         className="grid grid-cols-[auto_1fr_auto] gap-3 px-3 py-2 text-sm border-t border-red-600/10"
                       >
-                        <span className="font-mono font-semibold text-emerald-400">#{w.rank}</span>
+                        <span className="font-mono font-semibold text-emerald-400">
+                          #{w.rank}
+                        </span>
                         <span className="font-mono text-white/90 truncate">
                           {w.evm_address.slice(0, 6)}…{w.evm_address.slice(-4)}
                         </span>
-                        <span className="font-semibold text-white">${w.bid_amount_usd.toFixed(2)}</span>
+                        <span className="font-semibold text-white">
+                          ${w.bid_amount_usd.toFixed(2)}
+                        </span>
                       </div>
                     ))}
                   </div>
@@ -768,7 +877,8 @@ export default function DropDetailPage() {
                 {adminLosers.length > 0 && (
                   <p className="text-xs text-amber-400/90">
                     {adminLosers.length} additional bidder
-                    {adminLosers.length === 1 ? "" : "s"} will not be reserved (refunded).
+                    {adminLosers.length === 1 ? "" : "s"} will not be reserved
+                    (refunded).
                   </p>
                 )}
 
@@ -799,7 +909,9 @@ export default function DropDetailPage() {
         <div className="rounded-xl border border-red-600/40 bg-black/80 backdrop-blur-sm overflow-hidden shadow-xl">
           <div className="p-6 space-y-4">
             <div className="flex items-center gap-2">
-              <h2 className="text-base font-semibold text-white">Bidding closed</h2>
+              <h2 className="text-base font-semibold text-white">
+                Bidding closed
+              </h2>
               <span className="rounded-full bg-amber-500/20 px-2.5 py-0.5 text-xs font-medium text-amber-400 border border-amber-500/30">
                 Yellow Network
               </span>
@@ -807,13 +919,24 @@ export default function DropDetailPage() {
 
             {(() => {
               const myBidResult = evmAddress
-                ? bids.find((b) => b.evm_address.toLowerCase() === evmAddress.toLowerCase())
+                ? bids.find(
+                    (b) =>
+                      b.evm_address.toLowerCase() === evmAddress.toLowerCase()
+                  )
                 : null;
-              const myWinningBid = myBidResult?.status === "won" ? myBidResult : null;
-              const myLosingBid = myBidResult?.status === "lost" ? myBidResult : null;
+              const myWinningBid =
+                myBidResult?.status === "won" ? myBidResult : null;
+              const myLosingBid =
+                myBidResult?.status === "lost" ? myBidResult : null;
               const hasWinners = bids.some((b) => b.status === "won");
-              const participatedButLost = evmAddress && bids.some((b) => b.evm_address.toLowerCase() === evmAddress.toLowerCase());
-              const didntParticipate = evmAddress && !participatedButLost && hasWinners;
+              const participatedButLost =
+                evmAddress &&
+                bids.some(
+                  (b) =>
+                    b.evm_address.toLowerCase() === evmAddress.toLowerCase()
+                );
+              const didntParticipate =
+                evmAddress && !participatedButLost && hasWinners;
 
               // Loser: refund message
               if (myLosingBid && evmAddress) {
@@ -824,7 +947,8 @@ export default function DropDetailPage() {
                       Unfortunately there were higher bids in this drop who won.
                     </p>
                     <p className="text-xs text-white/70">
-                      Your bid amount (${refundAmount.toFixed(2)}) has been returned to your Yellow balance.
+                      Your bid amount (${refundAmount.toFixed(2)}) has been
+                      returned to your Yellow balance.
                     </p>
                   </div>
                 );
@@ -832,18 +956,26 @@ export default function DropDetailPage() {
 
               // Winner: reservation message + release funds
               if (myWinningBid && evmAddress) {
-                const channelId = yellowSession?.channelId ?? getStoredChannelId(evmAddress);
-                const canRelease = drop?.reservation_evm_recipient && channelId && !useYellowSandbox();
+                const channelId =
+                  yellowSession?.channelId ?? getStoredChannelId(evmAddress);
+                const canRelease =
+                  drop?.reservation_evm_recipient &&
+                  channelId &&
+                  !useYellowSandbox();
                 return (
                   <div className="rounded-lg border border-emerald-500/40 bg-emerald-950/30 p-4 space-y-3">
-                    <p className="text-sm font-medium text-emerald-400">You reserved a t-shirt.</p>
+                    <p className="text-sm font-medium text-emerald-400">
+                      You reserved a t-shirt.
+                    </p>
                     <p className="text-xs text-white/70">
                       Show this message to the authority to claim your t-shirt.
                     </p>
                     {canRelease && (
                       <>
                         <p className="text-xs text-white/60">
-                          Sign with your wallet to release ${myWinningBid.bid_amount_usd.toFixed(2)} to the organizer.
+                          Sign with your wallet to release $
+                          {myWinningBid.bid_amount_usd.toFixed(2)} to the
+                          organizer.
                         </p>
                         <button
                           type="button"
@@ -863,21 +995,37 @@ export default function DropDetailPage() {
               if (hasWinners && !evmAddress) {
                 return (
                   <div className="rounded-lg border border-emerald-500/40 bg-emerald-950/30 p-4 space-y-3">
-                    <p className="text-sm text-white/90">Connect your EVM wallet to see your result.</p>
+                    <p className="text-sm text-white/90">
+                      Connect your EVM wallet to see your result.
+                    </p>
                     <button
                       type="button"
                       onClick={async () => {
                         try {
-                          if (!hasEvmProvider()) throw new Error("No EVM wallet");
+                          if (!hasEvmProvider())
+                            throw new Error("No EVM wallet");
                           const addr = await connectYellowWallet();
                           setEvmAddress(addr);
                           const stored = getStoredEvmSession();
-                          if (stored && addr.toLowerCase() === stored.evmAddress.toLowerCase()) {
-                            const bal = useYellowSandbox() ? getStoredYellowBalance(addr) : stored.depositedUsd;
-                            setYellowSession({ userAddress: addr, appId: "onchaindrips-nfc-bidding", depositedUsd: bal, channelId: stored.channelId });
+                          if (
+                            stored &&
+                            addr.toLowerCase() ===
+                              stored.evmAddress.toLowerCase()
+                          ) {
+                            const bal = useYellowSandbox()
+                              ? getStoredYellowBalance(addr)
+                              : stored.depositedUsd;
+                            setYellowSession({
+                              userAddress: addr,
+                              appId: "onchaindrips-nfc-bidding",
+                              depositedUsd: bal,
+                              channelId: stored.channelId,
+                            });
                           }
                         } catch (e) {
-                          setYellowError(e instanceof Error ? e.message : "Failed");
+                          setYellowError(
+                            e instanceof Error ? e.message : "Failed"
+                          );
                         }
                       }}
                       className={`rounded-lg px-4 py-2 text-sm font-semibold ${btnClass}`}
@@ -910,12 +1058,16 @@ export default function DropDetailPage() {
               <p className="text-sm text-white/50">Loading results…</p>
             ) : bids.length === 0 ? (
               <div className="rounded-lg border border-dashed border-red-600/20 bg-black/40 p-6 text-center">
-                <p className="text-sm text-white/60">No bids were placed for this drop.</p>
+                <p className="text-sm text-white/60">
+                  No bids were placed for this drop.
+                </p>
               </div>
             ) : (
               <div className="space-y-4">
                 <div>
-                  <h3 className="text-sm font-medium text-white/90 mb-2">Winners (top {slots})</h3>
+                  <h3 className="text-sm font-medium text-white/90 mb-2">
+                    Winners (top {slots})
+                  </h3>
                   <div className="rounded-lg border border-emerald-500/30 overflow-hidden">
                     <div className="grid grid-cols-[auto_1fr_auto_auto] gap-3 px-3 py-2 bg-emerald-950/30 text-[10px] uppercase tracking-wider text-white/60">
                       <span>Rank</span>
@@ -931,12 +1083,17 @@ export default function DropDetailPage() {
                           key={`${b.evm_address}-won`}
                           className="grid grid-cols-[auto_1fr_auto_auto] gap-3 px-3 py-2 text-sm border-t border-emerald-500/10"
                         >
-                          <span className="font-mono font-semibold text-emerald-400">#{b.rank}</span>
+                          <span className="font-mono font-semibold text-emerald-400">
+                            #{b.rank}
+                          </span>
                           <span className="font-mono text-white/90 truncate">
-                            {b.evm_address.slice(0, 6)}…{b.evm_address.slice(-4)}
+                            {b.evm_address.slice(0, 6)}…
+                            {b.evm_address.slice(-4)}
                           </span>
                           <span className="text-white/80">{b.size ?? "—"}</span>
-                          <span className="font-semibold text-emerald-400">${b.bid_amount_usd.toFixed(2)}</span>
+                          <span className="font-semibold text-emerald-400">
+                            ${b.bid_amount_usd.toFixed(2)}
+                          </span>
                         </div>
                       ))}
                   </div>
@@ -966,7 +1123,8 @@ export default function DropDetailPage() {
                           >
                             <span className="font-mono">#{b.rank}</span>
                             <span className="font-mono truncate">
-                              {b.evm_address.slice(0, 6)}…{b.evm_address.slice(-4)}
+                              {b.evm_address.slice(0, 6)}…
+                              {b.evm_address.slice(-4)}
                             </span>
                             <span>{b.size ?? "—"}</span>
                             <span>${b.bid_amount_usd.toFixed(2)}</span>
@@ -975,8 +1133,8 @@ export default function DropDetailPage() {
                                 b.status === "won"
                                   ? "text-emerald-400"
                                   : b.status === "lost"
-                                    ? "text-amber-400"
-                                    : "text-white/50"
+                                  ? "text-amber-400"
+                                  : "text-white/50"
                               }
                             >
                               {b.status}

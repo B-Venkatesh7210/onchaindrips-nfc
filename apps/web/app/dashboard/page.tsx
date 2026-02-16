@@ -228,8 +228,8 @@ export default function DashboardPage() {
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-8">
-      <Link href="/" className="text-sm text-white/60 hover:text-white">
-        ← Home
+      <Link href="/drops" className="text-sm text-white/60 hover:text-white">
+        ← Drops
       </Link>
       <div className="mt-6 mb-6">
         <h1 className="text-2xl font-bold text-white">Dashboard</h1>
@@ -278,7 +278,7 @@ export default function DashboardPage() {
             </p>
           )}
           <Link
-            href="/"
+            href="/drops"
             className="mt-4 inline-block text-sm font-medium text-red-400 hover:text-red-300"
           >
             Browse drops →

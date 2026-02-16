@@ -41,7 +41,9 @@ export default function MePage() {
         const type = obj.data?.type;
         if (!type) continue;
         const typeLower = type.toLowerCase();
-        const isCurrentPackageShirt = shirtTypeLower ? typeLower === shirtTypeLower : typeLower.includes("::onchaindrips::shirt");
+        const isCurrentPackageShirt = shirtTypeLower
+          ? typeLower === shirtTypeLower
+          : typeLower.includes("::onchaindrips::shirt");
         if (!isCurrentPackageShirt) continue;
         const content = obj.data?.content;
         const fields =
@@ -55,7 +57,8 @@ export default function MePage() {
               : Number(fields.serial)
             : undefined;
         const isMinted = Boolean(fields?.is_minted);
-        const dropId = typeof fields?.drop_id === "string" ? fields.drop_id : "";
+        const dropId =
+          typeof fields?.drop_id === "string" ? fields.drop_id : "";
         if (!dropId) continue;
         items.push({
           objectId: obj.data?.objectId ?? "",
@@ -65,7 +68,7 @@ export default function MePage() {
           isMinted,
         });
       }
-      cursor = page.hasNextPage ? (page.nextCursor ?? undefined) : undefined;
+      cursor = page.hasNextPage ? page.nextCursor ?? undefined : undefined;
     } while (cursor);
     setShirts(items);
   }, []);
@@ -80,7 +83,9 @@ export default function MePage() {
     setLoading(true);
     setError(null);
     loadOwnedShirts(addr)
-      .catch((e) => setError(e instanceof Error ? e.message : "Failed to load shirts"))
+      .catch((e) =>
+        setError(e instanceof Error ? e.message : "Failed to load shirts")
+      )
       .finally(() => setLoading(false));
   }, [loadOwnedShirts]);
 
@@ -109,7 +114,10 @@ export default function MePage() {
     <div className="min-h-screen bg-neutral-50 p-6">
       <div className="max-w-lg mx-auto">
         <div className="mb-6 flex items-center justify-between">
-          <a href="/" className="text-neutral-500 hover:text-neutral-700 text-sm">
+          <a
+            href="/drops"
+            className="text-neutral-500 hover:text-neutral-700 text-sm"
+          >
             ← Back
           </a>
           <button
@@ -120,7 +128,9 @@ export default function MePage() {
             Logout
           </button>
         </div>
-        <h1 className="text-xl font-semibold text-neutral-800 mb-2">My Shirts</h1>
+        <h1 className="text-xl font-semibold text-neutral-800 mb-2">
+          My Shirts
+        </h1>
         <p className="text-neutral-500 text-sm mb-4 truncate" title={address}>
           {shortenAddress(address)}
         </p>
@@ -137,11 +147,15 @@ export default function MePage() {
                   href={`/${s.dropId}/${s.objectId}`}
                   className="block bg-white rounded-lg border border-neutral-200 p-4 shadow-sm hover:border-neutral-300"
                 >
-                  <span className="font-medium text-neutral-800">Shirt #{s.serial != null ? s.serial + 1 : "?"}</span>
+                  <span className="font-medium text-neutral-800">
+                    Shirt #{s.serial != null ? s.serial + 1 : "?"}
+                  </span>
                   <span className="text-neutral-500 text-sm ml-2">
                     {s.isMinted ? "Minted" : "Unminted"}
                   </span>
-                  <p className="text-neutral-400 text-xs mt-1 truncate">{s.objectId}</p>
+                  <p className="text-neutral-400 text-xs mt-1 truncate">
+                    {s.objectId}
+                  </p>
                 </a>
               </li>
             ))}

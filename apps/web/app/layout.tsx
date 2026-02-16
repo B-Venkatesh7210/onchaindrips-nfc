@@ -16,7 +16,9 @@ export default function RootLayout({
     <html lang="en">
       <body className="antialiased min-h-screen">
         <Header />
-        <main className="relative z-10 pt-20 min-h-screen">{children}</main>
+        <main className="relative z-10 min-h-screen [padding-top:var(--header-height)]">
+          {children}
+        </main>
       </body>
     </html>
   );

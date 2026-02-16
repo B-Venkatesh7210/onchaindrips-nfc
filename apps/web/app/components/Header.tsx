@@ -7,7 +7,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { getStoredAddress, loginWithGoogle, logout } from "@/lib/auth";
 import { ADMIN_ADDRESS } from "@/lib/api";
 
-const RPC_URL = process.env.NEXT_PUBLIC_SUI_RPC_URL ?? "https://fullnode.testnet.sui.io";
+const RPC_URL =
+  process.env.NEXT_PUBLIC_SUI_RPC_URL ?? "https://fullnode.testnet.sui.io";
 
 function shortenAddress(addr: string): string {
   if (addr.length <= 14) return addr;
@@ -19,7 +20,7 @@ function normalizeAddress(addr: string): string {
 }
 
 const navTabs = [
-  { name: "Drops", href: "/" },
+  { name: "Drops", href: "/drops" },
   { name: "Dashboard", href: "/dashboard" },
 ];
 
@@ -31,7 +32,8 @@ export default function Header() {
   const [shrink, setShrink] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  const isAdmin = address && normalizeAddress(address) === normalizeAddress(ADMIN_ADDRESS);
+  const isAdmin =
+    address && normalizeAddress(address) === normalizeAddress(ADMIN_ADDRESS);
 
   useEffect(() => {
     setAddress(getStoredAddress());
@@ -57,7 +59,8 @@ export default function Header() {
   }, []);
 
   const handleSignIn = useCallback(() => {
-    const returnTo = typeof window !== "undefined" ? window.location.pathname : "/";
+    const returnTo =
+      typeof window !== "undefined" ? window.location.pathname : "/";
     loginWithGoogle(RPC_URL, returnTo);
   }, []);
 
@@ -70,7 +73,10 @@ export default function Header() {
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(e.target as Node)
+      ) {
         setDropdownOpen(false);
       }
     }
@@ -89,10 +95,14 @@ export default function Header() {
     };
   }, [isMenuOpen]);
 
-  const headerBase = "bg-[rgba(20,10,20,0.55)] backdrop-blur-2xl border-red-600/20";
+  const isHome = pathname === "/";
+  const headerBase = isHome
+    ? "bg-black/20 backdrop-blur-md border-red-600/10"
+    : "bg-[rgba(20,10,20,0.55)] backdrop-blur-2xl border-red-600/20";
   const headerShrink = "border-red-600/30";
   const navLinkClass = "text-white/80 hover:text-white";
-  const btnClass = "bg-red-600 hover:bg-red-700 text-white shadow-[0_0_16px_0_rgba(220,38,38,0.6)] hover:shadow-[0_0_32px_4px_rgba(220,38,38,0.8)]";
+  const btnClass =
+    "bg-red-600 hover:bg-red-700 text-white shadow-[0_0_16px_0_rgba(220,38,38,0.6)] hover:shadow-[0_0_32px_4px_rgba(220,38,38,0.8)]";
   const menuOpenClass = "bg-black/95 border-red-600/20";
   const menuLinkClass = "text-white hover:text-red-500";
 
@@ -104,16 +114,20 @@ export default function Header() {
     >
       <div
         className={`
-          ${headerBase} backdrop-blur-2xl flex items-center justify-between pointer-events-auto
-          ${shrink ? `w-[90vw] max-w-4xl mt-4 rounded-2xl border ${headerShrink} shadow-xl` : "w-full rounded-none border-none mt-0"}
-          h-20 px-4 md:px-8 transition-[width,margin,box-shadow,border-radius,border] duration-500 ease-in-out
+          ${headerBase} flex items-center justify-between pointer-events-auto
+          ${
+            shrink
+              ? `w-[90vw] max-w-4xl mt-4 rounded-2xl border ${headerShrink} shadow-xl`
+              : "w-full rounded-none border-none mt-0"
+          }
+          h-20 px-4 md:px-8 transition-[width,margin,box-shadow,border-radius,border,background-color] duration-500 ease-in-out
         `}
       >
         {/* Left: Logo */}
         <div className="flex items-center gap-2 flex-1 md:flex-none">
           <Link href="/" className="flex items-center">
             <Image
-              src="/lovable-uploads/logo.png"
+              src="/images/logo.png"
               alt="OnChainDrips"
               width={80}
               height={80}
@@ -164,14 +178,23 @@ export default function Header() {
                 onClick={() => setDropdownOpen((o) => !o)}
                 className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium ${btnClass} transition-all duration-300`}
               >
-                <span className="max-w-[120px] truncate">{shortenAddress(address)}</span>
+                <span className="max-w-[120px] truncate">
+                  {shortenAddress(address)}
+                </span>
                 <svg
-                  className={`h-4 w-4 shrink-0 transition ${dropdownOpen ? "rotate-180" : ""}`}
+                  className={`h-4 w-4 shrink-0 transition ${
+                    dropdownOpen ? "rotate-180" : ""
+                  }`}
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
                 >
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M19 9l-7 7-7-7"
+                  />
                 </svg>
               </button>
               {dropdownOpen && (
@@ -213,12 +236,32 @@ export default function Header() {
             aria-expanded={isMenuOpen}
           >
             {isMenuOpen ? (
-              <svg className="h-10 w-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              <svg
+                className="h-10 w-10"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M6 18L18 6M6 6l12 12"
+                />
               </svg>
             ) : (
-              <svg className="h-10 w-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+              <svg
+                className="h-10 w-10"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M4 6h16M4 12h16M4 18h16"
+                />
               </svg>
             )}
           </button>
@@ -235,8 +278,18 @@ export default function Header() {
             onClick={() => setIsMenuOpen(false)}
             aria-label="Close menu"
           >
-            <svg className="h-8 w-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            <svg
+              className="h-8 w-8"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M6 18L18 6M6 6l12 12"
+              />
             </svg>
           </button>
           <nav className="py-6 space-y-4 flex flex-col items-center">
@@ -272,7 +325,9 @@ export default function Header() {
               </button>
             ) : (
               <div className="w-full max-w-xs mt-8 space-y-2">
-                <p className="text-white/70 text-center text-sm truncate px-4">{shortenAddress(address)}</p>
+                <p className="text-white/70 text-center text-sm truncate px-4">
+                  {shortenAddress(address)}
+                </p>
                 <button
                   type="button"
                   onClick={handleLogout}

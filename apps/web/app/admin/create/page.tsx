@@ -91,13 +91,20 @@ export default function AdminCreateDropPage() {
   // Section 4: Mint shirts
   const [mintImageBlobId, setMintImageBlobId] = useState("");
   const [mintMetadataBlobId, setMintMetadataBlobId] = useState("");
-  const [mintUploadedImage1File, setMintUploadedImage1File] = useState<File | null>(null);
-  const [mintUploadedImage2File, setMintUploadedImage2File] = useState<File | null>(null);
-  const [mintUploadedImage1Preview, setMintUploadedImage1Preview] = useState<string | null>(null);
-  const [mintUploadedImage2Preview, setMintUploadedImage2Preview] = useState<string | null>(null);
+  const [mintUploadedImage1File, setMintUploadedImage1File] =
+    useState<File | null>(null);
+  const [mintUploadedImage2File, setMintUploadedImage2File] =
+    useState<File | null>(null);
+  const [mintUploadedImage1Preview, setMintUploadedImage1Preview] = useState<
+    string | null
+  >(null);
+  const [mintUploadedImage2Preview, setMintUploadedImage2Preview] = useState<
+    string | null
+  >(null);
   const [mintUploadedImage1Url, setMintUploadedImage1Url] = useState("");
   const [mintUploadedImage2Url, setMintUploadedImage2Url] = useState("");
-  const [mintUploadedImageUploading, setMintUploadedImageUploading] = useState(false);
+  const [mintUploadedImageUploading, setMintUploadedImageUploading] =
+    useState(false);
   const [mintSubmitting, setMintSubmitting] = useState(false);
   const [mintError, setMintError] = useState<string | null>(null);
   /** After successful mint: shirt object IDs for NFC URL download. */
@@ -171,8 +178,10 @@ export default function AdminCreateDropPage() {
   // Cleanup carousel image preview object URLs on unmount
   useEffect(() => {
     return () => {
-      if (mintUploadedImage1Preview) URL.revokeObjectURL(mintUploadedImage1Preview);
-      if (mintUploadedImage2Preview) URL.revokeObjectURL(mintUploadedImage2Preview);
+      if (mintUploadedImage1Preview)
+        URL.revokeObjectURL(mintUploadedImage1Preview);
+      if (mintUploadedImage2Preview)
+        URL.revokeObjectURL(mintUploadedImage2Preview);
     };
   }, [mintUploadedImage1Preview, mintUploadedImage2Preview]);
 
@@ -247,8 +256,11 @@ export default function AdminCreateDropPage() {
     dropReleaseDate,
   ]);
 
-  const uploadMintImages = useCallback(async (): Promise<[string, string] | null> => {
-    if (!address || !mintUploadedImage1File || !mintUploadedImage2File) return null;
+  const uploadMintImages = useCallback(async (): Promise<
+    [string, string] | null
+  > => {
+    if (!address || !mintUploadedImage1File || !mintUploadedImage2File)
+      return null;
     setMintUploadedImageUploading(true);
     setMintError(null);
     try {
@@ -345,10 +357,10 @@ export default function AdminCreateDropPage() {
       <div className="mx-auto max-w-2xl px-4 py-8">
         <p className="text-white/70">Sign in to access this page.</p>
         <Link
-          href="/"
+          href="/drops"
           className="mt-4 inline-block text-sm text-white/60 hover:text-white"
         >
-          ← Home
+          ← Drops
         </Link>
       </div>
     );
@@ -359,10 +371,10 @@ export default function AdminCreateDropPage() {
       <div className="mx-auto max-w-2xl px-4 py-8">
         <p className="text-white/70">Admin only.</p>
         <Link
-          href="/"
+          href="/drops"
           className="mt-4 inline-block text-sm text-white/60 hover:text-white"
         >
-          ← Home
+          ← Drops
         </Link>
       </div>
     );
@@ -370,15 +382,10 @@ export default function AdminCreateDropPage() {
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-8">
-      <Link
-        href="/"
-        className="text-sm text-white/60 hover:text-white"
-      >
-        ← Home
+      <Link href="/drops" className="text-sm text-white/60 hover:text-white">
+        ← Drops
       </Link>
-      <h1 className="mt-6 text-2xl font-bold text-white">
-        Create a drop
-      </h1>
+      <h1 className="mt-6 text-2xl font-bold text-white">Create a drop</h1>
       <p className="mt-1 text-sm text-white/60">
         Complete each section in order. After minting you’ll be redirected to
         the home page.
@@ -408,13 +415,16 @@ export default function AdminCreateDropPage() {
             >
               {imageUploading ? "Uploading…" : "Upload to Walrus"}
             </button>
-            {imageError && (
-              <p className="text-sm text-red-400">{imageError}</p>
-            )}
-            <CopyableBlobId label="Walrus blob ID (image)" value={imageBlobId} />
+            {imageError && <p className="text-sm text-red-400">{imageError}</p>}
+            <CopyableBlobId
+              label="Walrus blob ID (image)"
+              value={imageBlobId}
+            />
           </div>
           <div className="flex shrink-0 flex-col items-center lg:w-80">
-            <p className="mb-2 text-xs font-medium text-white/50 uppercase tracking-wider">Preview</p>
+            <p className="mb-2 text-xs font-medium text-white/50 uppercase tracking-wider">
+              Preview
+            </p>
             <div className="aspect-square w-full max-w-sm rounded-xl border border-white/10 bg-black/40 flex items-center justify-center overflow-hidden">
               {imagePreview ? (
                 <img
@@ -515,9 +525,7 @@ export default function AdminCreateDropPage() {
 
       {/* Section 3: Drop details (onchain + Supabase) */}
       <section className="mt-8 rounded-xl border border-white/10 bg-black/30 backdrop-blur-sm p-6">
-        <h2 className="text-lg font-semibold text-white">
-          3. Drop details
-        </h2>
+        <h2 className="text-lg font-semibold text-white">3. Drop details</h2>
         <p className="mt-1 text-sm text-white/60">
           Creates the drop onchain and in the database.
         </p>
@@ -722,16 +730,16 @@ export default function AdminCreateDropPage() {
         {createdDropId && (
           <p className="mt-2 text-sm text-emerald-400">
             Drop created:{" "}
-            <code className="rounded bg-black/40 px-1 text-white/90">{createdDropId}</code>
+            <code className="rounded bg-black/40 px-1 text-white/90">
+              {createdDropId}
+            </code>
           </p>
         )}
       </section>
 
       {/* Section 4: Mint shirts */}
       <section className="mt-8 rounded-xl border border-white/10 bg-black/30 backdrop-blur-sm p-6">
-        <h2 className="text-lg font-semibold text-white">
-          4. Mint shirts
-        </h2>
+        <h2 className="text-lg font-semibold text-white">4. Mint shirts</h2>
         <p className="mt-1 text-sm text-white/60">
           Mint total supply shirts onchain and save to Supabase. Paste blob IDs
           from sections 1 and 2.
@@ -761,103 +769,115 @@ export default function AdminCreateDropPage() {
               className="mt-1 w-full rounded border border-white/20 bg-black/40 px-3 py-2 text-sm font-mono text-white placeholder-white/40"
             />
           </div>
-        <div className="mt-4 flex flex-col gap-6 lg:flex-row lg:items-start">
-          <div className="flex-1 space-y-4">
-            <div>
-              <label className="text-sm font-medium text-white/70">
-                Carousel image 1 (upload to Supabase Storage)
-              </label>
-              <p className="mt-0.5 text-xs text-white/60">
-                Fallback when NFT image fails to load; also used in carousel.
-              </p>
-              <div className="mt-1 flex items-center gap-2">
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={(e) => {
-                    const f = e.target.files?.[0];
-                    setMintUploadedImage1Preview((prev) => {
-                      if (prev) URL.revokeObjectURL(prev);
-                      return f ? URL.createObjectURL(f) : null;
-                    });
-                    setMintUploadedImage1File(f ?? null);
-                    if (!f) setMintUploadedImage1Url("");
-                  }}
-                  className="block w-full text-sm text-white/80 file:mr-3 file:rounded-lg file:border-0 file:bg-white/10 file:px-4 file:py-2 file:text-sm file:font-medium file:text-white hover:file:bg-white/20"
-                />
-                {mintUploadedImage1Url && (
-                  <span className="text-xs text-emerald-400 font-medium">Uploaded</span>
-                )}
+          <div className="mt-4 flex flex-col gap-6 lg:flex-row lg:items-start">
+            <div className="flex-1 space-y-4">
+              <div>
+                <label className="text-sm font-medium text-white/70">
+                  Carousel image 1 (upload to Supabase Storage)
+                </label>
+                <p className="mt-0.5 text-xs text-white/60">
+                  Fallback when NFT image fails to load; also used in carousel.
+                </p>
+                <div className="mt-1 flex items-center gap-2">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => {
+                      const f = e.target.files?.[0];
+                      setMintUploadedImage1Preview((prev) => {
+                        if (prev) URL.revokeObjectURL(prev);
+                        return f ? URL.createObjectURL(f) : null;
+                      });
+                      setMintUploadedImage1File(f ?? null);
+                      if (!f) setMintUploadedImage1Url("");
+                    }}
+                    className="block w-full text-sm text-white/80 file:mr-3 file:rounded-lg file:border-0 file:bg-white/10 file:px-4 file:py-2 file:text-sm file:font-medium file:text-white hover:file:bg-white/20"
+                  />
+                  {mintUploadedImage1Url && (
+                    <span className="text-xs text-emerald-400 font-medium">
+                      Uploaded
+                    </span>
+                  )}
+                </div>
+              </div>
+              <div>
+                <label className="text-sm font-medium text-white/70">
+                  Carousel image 2 (upload to Supabase Storage)
+                </label>
+                <p className="mt-0.5 text-xs text-white/60">
+                  Second slide in the image carousel.
+                </p>
+                <div className="mt-1 flex items-center gap-2">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => {
+                      const f = e.target.files?.[0];
+                      setMintUploadedImage2Preview((prev) => {
+                        if (prev) URL.revokeObjectURL(prev);
+                        return f ? URL.createObjectURL(f) : null;
+                      });
+                      setMintUploadedImage2File(f ?? null);
+                      if (!f) setMintUploadedImage2Url("");
+                    }}
+                    className="block w-full text-sm text-white/80 file:mr-3 file:rounded-lg file:border-0 file:bg-white/10 file:px-4 file:py-2 file:text-sm file:font-medium file:text-white hover:file:bg-white/20"
+                  />
+                  {mintUploadedImage2Url && (
+                    <span className="text-xs text-emerald-400 font-medium">
+                      Uploaded
+                    </span>
+                  )}
+                </div>
               </div>
             </div>
-            <div>
-              <label className="text-sm font-medium text-white/70">
-                Carousel image 2 (upload to Supabase Storage)
-              </label>
-              <p className="mt-0.5 text-xs text-white/60">
-                Second slide in the image carousel.
+            <div className="flex shrink-0 flex-col items-center lg:w-80">
+              <p className="mb-2 text-xs font-medium text-white/50 uppercase tracking-wider">
+                Carousel preview
               </p>
-              <div className="mt-1 flex items-center gap-2">
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={(e) => {
-                    const f = e.target.files?.[0];
-                    setMintUploadedImage2Preview((prev) => {
-                      if (prev) URL.revokeObjectURL(prev);
-                      return f ? URL.createObjectURL(f) : null;
-                    });
-                    setMintUploadedImage2File(f ?? null);
-                    if (!f) setMintUploadedImage2Url("");
-                  }}
-                  className="block w-full text-sm text-white/80 file:mr-3 file:rounded-lg file:border-0 file:bg-white/10 file:px-4 file:py-2 file:text-sm file:font-medium file:text-white hover:file:bg-white/20"
-                />
-                {mintUploadedImage2Url && (
-                  <span className="text-xs text-emerald-400 font-medium">Uploaded</span>
-                )}
+              <div className="grid w-full max-w-sm grid-cols-2 gap-3">
+                <div className="aspect-square rounded-xl border border-white/10 bg-black/40 flex items-center justify-center overflow-hidden">
+                  {mintUploadedImage1Preview ? (
+                    <img
+                      src={mintUploadedImage1Preview}
+                      alt="Carousel 1"
+                      className="h-full w-full object-contain p-2"
+                    />
+                  ) : (
+                    <span className="text-xs text-white/40 text-center px-2">
+                      Image 1
+                    </span>
+                  )}
+                </div>
+                <div className="aspect-square rounded-xl border border-white/10 bg-black/40 flex items-center justify-center overflow-hidden">
+                  {mintUploadedImage2Preview ? (
+                    <img
+                      src={mintUploadedImage2Preview}
+                      alt="Carousel 2"
+                      className="h-full w-full object-contain p-2"
+                    />
+                  ) : (
+                    <span className="text-xs text-white/40 text-center px-2">
+                      Image 2
+                    </span>
+                  )}
+                </div>
               </div>
             </div>
           </div>
-          <div className="flex shrink-0 flex-col items-center lg:w-80">
-            <p className="mb-2 text-xs font-medium text-white/50 uppercase tracking-wider">Carousel preview</p>
-            <div className="grid w-full max-w-sm grid-cols-2 gap-3">
-              <div className="aspect-square rounded-xl border border-white/10 bg-black/40 flex items-center justify-center overflow-hidden">
-                {mintUploadedImage1Preview ? (
-                  <img
-                    src={mintUploadedImage1Preview}
-                    alt="Carousel 1"
-                    className="h-full w-full object-contain p-2"
-                  />
-                ) : (
-                  <span className="text-xs text-white/40 text-center px-2">Image 1</span>
-                )}
-              </div>
-              <div className="aspect-square rounded-xl border border-white/10 bg-black/40 flex items-center justify-center overflow-hidden">
-                {mintUploadedImage2Preview ? (
-                  <img
-                    src={mintUploadedImage2Preview}
-                    alt="Carousel 2"
-                    className="h-full w-full object-contain p-2"
-                  />
-                ) : (
-                  <span className="text-xs text-white/40 text-center px-2">Image 2</span>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
         </div>
         <button
           type="button"
           onClick={mintShirts}
-          disabled={!createdDropId || mintSubmitting || mintUploadedImageUploading}
+          disabled={
+            !createdDropId || mintSubmitting || mintUploadedImageUploading
+          }
           className="mt-4 rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-500 disabled:opacity-50"
         >
           {mintUploadedImageUploading
             ? "Uploading images…"
             : mintSubmitting
-              ? "Minting…"
-              : "Mint shirts onchain + Supabase"}
+            ? "Minting…"
+            : "Mint shirts onchain + Supabase"}
         </button>
         {mintError && <p className="mt-2 text-sm text-red-400">{mintError}</p>}
         {mintedShirtIds && mintedShirtIds.length > 0 && (
@@ -876,10 +896,10 @@ export default function AdminCreateDropPage() {
                 Download NFC URLs (.txt)
               </button>
               <Link
-                href="/"
+                href="/drops"
                 className="rounded-lg border border-white/20 bg-white/10 px-4 py-2 text-sm font-medium text-white hover:bg-white/20"
               >
-                Go to Home
+                Go to Drops
               </Link>
             </div>
           </div>
