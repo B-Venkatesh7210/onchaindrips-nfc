@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useRef, useState, useEffect } from "react";
+import { useRef, useState, useEffect, useCallback } from "react";
 import { motion } from "framer-motion";
 import { ralewayBlackItalic } from "./fonts";
 
@@ -77,36 +77,77 @@ const glitchColors = [
   "#ffffff",
 ];
 
+const NFC_AUTO_SCROLL_MS = 5500;
+
 export default function LandingPage() {
+  const nfcSectionRef = useRef<HTMLElement>(null);
   const nfcScrollRef = useRef<HTMLDivElement>(null);
   const [nfcActiveIndex, setNfcActiveIndex] = useState(0);
+  const nfcActiveIndexRef = useRef(0);
+  const autoScrollTimerRef = useRef<ReturnType<typeof setInterval> | null>(
+    null
+  );
 
-  useEffect(() => {
-    const el = nfcScrollRef.current;
-    if (!el) return;
-    const onScroll = () => {
-      const slideWidth = el.scrollWidth / NFC_HOW_IT_WORKS.length;
-      const index = Math.round(el.scrollLeft / slideWidth);
-      setNfcActiveIndex(
-        Math.min(Math.max(0, index), NFC_HOW_IT_WORKS.length - 1)
-      );
-    };
-    el.addEventListener("scroll", onScroll, { passive: true });
-    onScroll();
-    return () => el.removeEventListener("scroll", onScroll);
+  const scrollToNfc = useCallback((index: number) => {
+    // For the single-image arc approach we no longer scroll; simply set the active index.
+    setNfcActiveIndex(index);
+    nfcActiveIndexRef.current = index;
   }, []);
 
-  const scrollToNfc = (index: number) => {
-    const el = nfcScrollRef.current;
-    if (!el) return;
-    const slideWidth = el.scrollWidth / NFC_HOW_IT_WORKS.length;
-    el.scrollTo({ left: index * slideWidth, behavior: "smooth" });
+  const startAutoScroll = useCallback(() => {
+    if (autoScrollTimerRef.current) clearInterval(autoScrollTimerRef.current);
+    autoScrollTimerRef.current = setInterval(() => {
+      const next = (nfcActiveIndexRef.current + 1) % NFC_HOW_IT_WORKS.length;
+      scrollToNfc(next);
+    }, NFC_AUTO_SCROLL_MS);
+  }, [scrollToNfc]);
+
+  const stopAutoScroll = useCallback(() => {
+    if (autoScrollTimerRef.current) {
+      clearInterval(autoScrollTimerRef.current);
+      autoScrollTimerRef.current = null;
+    }
+  }, []);
+
+  useEffect(() => {
+    nfcActiveIndexRef.current = nfcActiveIndex;
+  }, [nfcActiveIndex]);
+
+  // scrolling listener removed — the new layout uses state-driven slides and drag detection
+
+  // Only run auto-scroll when the NFC section is in view
+  useEffect(() => {
+    const section = nfcSectionRef.current;
+    if (!section) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const [entry] = entries;
+        if (entry.isIntersecting) {
+          scrollToNfc(0);
+          setNfcActiveIndex(0);
+          nfcActiveIndexRef.current = 0;
+          startAutoScroll();
+        } else {
+          stopAutoScroll();
+        }
+      },
+      { threshold: 0.25, rootMargin: "0px" }
+    );
+    observer.observe(section);
+    return () => observer.disconnect();
+  }, [scrollToNfc, startAutoScroll, stopAutoScroll]);
+
+  const goToNfc = (index: number) => {
+    if (index < 0 || index >= NFC_HOW_IT_WORKS.length) return;
+    scrollToNfc(index);
+    setNfcActiveIndex(index);
+    startAutoScroll(); // reset timer on user interaction
   };
 
   return (
     <>
       {/* Hero: pulled up behind transparent navbar so image shows through */}
-      <section className="relative min-h-[85vh] w-full flex flex-col items-center justify-center overflow-hidden -mt-24">
+      <section className="relative h-[calc(100vh-6rem)] w-full flex flex-col items-center justify-center overflow-hidden -mt-24">
         {/* Full-width hero image — animates in first */}
         <div className="absolute inset-0 w-screen left-1/2 -translate-x-1/2 overflow-hidden">
           <motion.div
@@ -180,61 +221,124 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* How NFC-enabled t-shirts work — horizontal snap scroll */}
-      <section className="py-20 px-0 border-y border-red-600/20 bg-black/40">
-        <div className="px-4 mb-8">
-          <h2 className="text-2xl md:text-3xl font-bold text-white text-center">
-            How NFC-enabled t-shirts work
-          </h2>
-          <p className="mt-2 text-white/70 text-center max-w-xl mx-auto text-sm md:text-base">
-            From exclusive drops to minting, profiles, and future utility.
-          </p>
+      {/* How NFC-enabled t-shirts work — rebuilt single-image arc (no horizontal slide) */}
+      <section
+        ref={nfcSectionRef}
+        className="py-16 md:py-20 border-y border-red-600/20 bg-black/40 overflow-hidden"
+      >
+        <div className="w-full max-w-[92vw] 2xl:max-w-[2200px] mx-auto px-4 md:px-6 lg:px-10 mb-8 relative">
+          {/* Centered overlay heading — animates on enter, pointer-events-none so it doesn't block interactions */}
+          <motion.div
+            initial={{ opacity: 0, y: 24, scale: 0.98, filter: "blur(6px)" }}
+            whileInView={{ opacity: 1, y: 0, scale: 1, filter: "blur(0px)" }}
+            viewport={{ once: true, amount: 0.35 }}
+            transition={{ duration: 0.7, ease: "easeOut" }}
+            className="absolute inset-0 flex items-center justify-center pointer-events-none"
+          >
+            <div className="text-center px-4 md:px-8">
+              <h2 className="text-2xl md:text-3xl lg:text-4xl font-bold text-white">
+                How NFC-enabled t-shirts work
+              </h2>
+              <p className="mt-2 text-white/70 text-sm md:text-base max-w-2xl mx-auto">
+                From exclusive drops to minting, profiles, and future utility.
+              </p>
+            </div>
+          </motion.div>
+          {/* Keep an invisible spacer so section layout stays correct */}
+          <div aria-hidden className="invisible">
+            <h2 className="text-2xl md:text-3xl font-bold text-white text-left">
+              How NFC-enabled t-shirts work
+            </h2>
+            <p className="mt-2 text-white/70 text-left text-sm md:text-base max-w-xl">
+              From exclusive drops to minting, profiles, and future utility.
+            </p>
+          </div>
         </div>
-        <div
-          ref={nfcScrollRef}
-          className="flex overflow-x-auto snap-x snap-mandatory gap-6 pb-12 px-4 md:px-8 scroll-smooth scrollbar-hide"
-          style={{ WebkitOverflowScrolling: "touch" } as React.CSSProperties}
-        >
-          {NFC_HOW_IT_WORKS.map((item, index) => (
-            <article
-              key={item.id}
-              className="flex-shrink-0 w-[85vw] md:w-[75vw] max-w-4xl snap-center rounded-2xl overflow-hidden border border-red-600/20 bg-black/60 backdrop-blur-sm flex flex-col md:flex-row min-h-[320px] md:min-h-[280px]"
+
+        <div className="relative w-full max-w-[92vw] 2xl:max-w-[2000px] mx-auto px-4 md:px-6 2xl:px-10">
+          <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6 min-h-[360px] md:min-h-[320px]">
+            {/* Text column — left */}
+            <motion.div
+              key={`text-${nfcActiveIndex}`}
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -12 }}
+              transition={{ duration: 0.45, ease: "easeOut" }}
+              className="w-full md:w-1/2 bg-transparent p-0 md:pr-8"
             >
-              <div
-                className={`w-full md:w-2/5 min-h-[180px] md:min-h-full bg-gradient-to-br ${item.gradient} flex items-center justify-center p-8`}
-              >
-                <span className="text-6xl md:text-7xl opacity-90" aria-hidden>
-                  {item.icon}
+              <div className="flex flex-row justify-start items-center gap-4">
+                <span className="text-xl 2xl:text-8xl font-semibold text-red-400 uppercase tracking-wider">
+                  {String(NFC_HOW_IT_WORKS[nfcActiveIndex].id).padStart(2, "0")}
                 </span>
-              </div>
-              <div className="flex-1 p-6 md:p-8 flex flex-col justify-center">
-                <span className="text-xs font-semibold text-red-400 uppercase tracking-wider">
-                  {String(item.id).padStart(2, "0")}
-                </span>
-                <h3 className="mt-1 text-xl md:text-2xl font-bold text-white">
-                  {item.title}
+                <h3 className="mt-2 text-2xl 2xl:text-6xl md:text-3xl font-bold text-white">
+                  {NFC_HOW_IT_WORKS[nfcActiveIndex].title}
                 </h3>
-                <p className="mt-3 text-sm md:text-base text-white/80 leading-relaxed">
-                  {item.description}
-                </p>
               </div>
-            </article>
-          ))}
-        </div>
-        <div className="flex justify-center gap-2 pt-2">
-          {NFC_HOW_IT_WORKS.map((_, index) => (
-            <button
-              key={index}
-              type="button"
-              onClick={() => scrollToNfc(index)}
-              className={`h-2 rounded-full transition-all duration-300 ${
-                index === nfcActiveIndex
-                  ? "w-8 bg-red-500"
-                  : "w-2 bg-white/30 hover:bg-white/50"
-              }`}
-              aria-label={`Go to slide ${index + 1}`}
-            />
-          ))}
+
+              <p className="mt-4 text-sm md:text-base 2xl:text-2xl text-white/80 leading-relaxed">
+                {NFC_HOW_IT_WORKS[nfcActiveIndex].description}
+              </p>
+            </motion.div>
+
+            {/* Image column — right (drag to change step) */}
+            <motion.div
+              key={`image-col-${nfcActiveIndex}`}
+              className="flex items-center justify-center"
+              drag="x"
+              dragConstraints={{ left: 0, right: 0 }}
+              onDragEnd={(_, info) => {
+                const offset = info.offset.x;
+                const threshold = 80;
+                if (offset < -threshold) {
+                  const next = (nfcActiveIndex + 1) % NFC_HOW_IT_WORKS.length;
+                  goToNfc(next);
+                } else if (offset > threshold) {
+                  const prev =
+                    (nfcActiveIndex - 1 + NFC_HOW_IT_WORKS.length) %
+                    NFC_HOW_IT_WORKS.length;
+                  goToNfc(prev);
+                } else {
+                  startAutoScroll();
+                }
+              }}
+            >
+              <motion.div
+                key={`img-${nfcActiveIndex}`}
+                initial={{ opacity: 0, y: -220, rotate: -12, scale: 1.03 }}
+                animate={{ opacity: 1, y: 0, rotate: 0, scale: 1 }}
+                transition={{ duration: 0.7, ease: [0.22, 0.9, 0.32, 1] }}
+                className="w-full h-full flex items-center justify-center"
+              >
+                <div
+                  className={`w-full h-full bg-gradient-to-br ${NFC_HOW_IT_WORKS[nfcActiveIndex].gradient} flex items-center justify-center p-8 rounded-sm nfc-image-active`}
+                  style={{
+                    width: "clamp(320px, 30vw, 720px)",
+                    height: "clamp(240px, 28vh, 720px)",
+                  }}
+                >
+                  <span className="text-6xl md:text-7xl opacity-90" aria-hidden>
+                    {NFC_HOW_IT_WORKS[nfcActiveIndex].icon}
+                  </span>
+                </div>
+              </motion.div>
+            </motion.div>
+          </div>
+
+          <div className="flex justify-center gap-2 pt-6">
+            {NFC_HOW_IT_WORKS.map((_, index) => (
+              <button
+                key={index}
+                type="button"
+                onClick={() => goToNfc(index)}
+                className={`h-2 rounded-full transition-all duration-300 ${
+                  index === nfcActiveIndex
+                    ? "w-8 bg-red-500"
+                    : "w-2 bg-white/30 hover:bg-white/50"
+                }`}
+                aria-label={`Go to step ${index + 1}`}
+              />
+            ))}
+          </div>
         </div>
       </section>
 

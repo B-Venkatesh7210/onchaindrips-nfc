@@ -79,3 +79,53 @@
     display: none;
   }
 }
+
+/* NFC image entrance + loop for single-image arc effect (CSS-driven) */
+@keyframes nfc-image-entrance {
+  0% {
+    opacity: 0;
+    transform: translateY(-320px) rotate(-14deg) scale(1.05);
+  }
+  60% {
+    opacity: 1;
+    transform: translateY(12px) rotate(-6deg) scale(1.02);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) rotate(0deg) scale(1);
+  }
+}
+
+@keyframes nfc-image-loop {
+  0% {
+    transform: translateY(0) rotate(0deg);
+  }
+  50% {
+    transform: translateY(-6px) rotate(-1deg);
+  }
+  100% {
+    transform: translateY(0) rotate(0deg);
+  }
+}
+
+@layer components {
+  .nfc-image-active {
+    animation: nfc-image-entrance 0.7s cubic-bezier(0.22, 0.9, 0.32, 1) 0s 1
+        forwards,
+      nfc-image-loop 8s ease-in-out 0.75s infinite;
+    will-change: transform, opacity;
+  }
+
+  .nfc-image-idle {
+    opacity: 0.9;
+    transform: translateY(0) rotate(0deg) scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nfc-image-active,
+  .nfc-image-idle {
+    animation: none !important;
+    transition: none !important;
+  }
+}
