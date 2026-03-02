@@ -170,7 +170,7 @@ export default function LandingPage() {
         <div className="absolute inset-0 bg-gradient-to-b from-red-950/40 via-transparent to-red-950/30 pointer-events-none" />
         <div className="relative z-10 px-4 text-center">
           <motion.h1
-            className={`${ralewayBlackItalic.className} text-6xl md:text-5xl lg:text-9xl mt-[30rem] font-bold max-w-8xl mx-auto drop-shadow-lg italic`}
+            className={`${ralewayBlackItalic.className} text-6xl md:text-5xl lg:text-9xl mt-[20rem] font-bold max-w-8xl mx-auto drop-shadow-lg italic`}
             initial={{ opacity: 0, letterSpacing: "0.6em" }}
             animate={{
               opacity: 1,
@@ -199,7 +199,7 @@ export default function LandingPage() {
           >
             NFC-enabled merch, B2B Merchandise and on-chain utility.
           </motion.p>
-          <motion.div
+          {/* <motion.div
             className="mt-10 flex flex-wrap items-center justify-center gap-4"
             initial={{ opacity: 0, scale: 0.96 }}
             animate={{ opacity: 1, scale: 1 }}
@@ -217,7 +217,7 @@ export default function LandingPage() {
             >
               View marketplace
             </Link>
-          </motion.div>
+          </motion.div> */}
         </div>
       </section>
 
@@ -267,10 +267,10 @@ export default function LandingPage() {
               className="w-full md:w-1/2 bg-transparent p-0 md:pr-8"
             >
               <div className="flex flex-row justify-start items-center gap-4">
-                <span className="text-xl 2xl:text-8xl font-semibold text-red-400 uppercase tracking-wider">
+                <span className="text-xl 2xl:text-8xl lg:text-6xl font-semibold text-red-400 uppercase tracking-wider">
                   {String(NFC_HOW_IT_WORKS[nfcActiveIndex].id).padStart(2, "0")}
                 </span>
-                <h3 className="mt-2 text-2xl 2xl:text-6xl md:text-3xl font-bold text-white">
+                <h3 className="mt-2 text-2xl 2xl:text-6xl lg:text-4xl md:text-3xl font-bold text-white">
                   {NFC_HOW_IT_WORKS[nfcActiveIndex].title}
                 </h3>
               </div>
@@ -310,15 +310,21 @@ export default function LandingPage() {
                 className="w-full h-full flex items-center justify-center"
               >
                 <div
-                  className={`w-full h-full bg-gradient-to-br ${NFC_HOW_IT_WORKS[nfcActiveIndex].gradient} flex items-center justify-center p-8 rounded-sm nfc-image-active`}
+                  className="w-full h-full flex items-center justify-center rounded-sm nfc-image-active"
                   style={{
                     width: "clamp(320px, 30vw, 720px)",
                     height: "clamp(240px, 28vh, 720px)",
                   }}
                 >
-                  <span className="text-6xl md:text-7xl opacity-90" aria-hidden>
-                    {NFC_HOW_IT_WORKS[nfcActiveIndex].icon}
-                  </span>
+                  <div className="relative w-full h-full rounded-sm overflow-hidden">
+                    <Image
+                      src={`/images/nfc/step_${NFC_HOW_IT_WORKS[nfcActiveIndex].id}.png`}
+                      alt={NFC_HOW_IT_WORKS[nfcActiveIndex].title}
+                      fill
+                      className="object-cover"
+                      sizes="(min-width: 1024px) 30vw, 80vw"
+                    />
+                  </div>
                 </div>
               </motion.div>
             </motion.div>
