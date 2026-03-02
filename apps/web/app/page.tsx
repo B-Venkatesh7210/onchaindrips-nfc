@@ -77,7 +77,59 @@ const glitchColors = [
   "#ffffff",
 ];
 
+const productTitleGlitchColors = [...glitchColors.slice(0, -1), "#000000"];
+
 const NFC_AUTO_SCROLL_MS = 5500;
+
+const PRODUCT_CATEGORIES = [
+  {
+    id: 1,
+    name: "HOODIES",
+    image: "/images/products/product_1.png",
+  },
+  {
+    id: 2,
+    name: "T-SHIRTS",
+    image: "/images/products/product_2.png",
+  },
+
+  {
+    id: 3,
+    name: "POLO T-SHIRTS",
+    image: "/images/products/product_3.png",
+  },
+  {
+    id: 4,
+    name: "SWEATSHIRTS",
+    image: "/images/products/product_4.png",
+  },
+  {
+    id: 5,
+    name: "CAPS",
+    image: "/images/products/product_5.png",
+  },
+];
+
+const productGridVariants = {
+  hidden: { opacity: 0 },
+  show: {
+    opacity: 1,
+    transition: { staggerChildren: 0.09, delayChildren: 0.12 },
+  },
+};
+
+const productCardVariants = {
+  hidden: { opacity: 0, y: 18, scale: 0.98 },
+  show: {
+    opacity: 1,
+    y: 0,
+    scale: 1,
+    transition: {
+      duration: 0.5,
+      ease: [0.22, 1, 0.36, 1] as [number, number, number, number],
+    },
+  },
+};
 
 export default function LandingPage() {
   const nfcSectionRef = useRef<HTMLElement>(null);
@@ -345,6 +397,73 @@ export default function LandingPage() {
               />
             ))}
           </div>
+        </div>
+      </section>
+
+      {/* Product range section */}
+      <section className="bg-gradient-to-b from-red-50 to-red-100/70 pt-4 flex justify-center items-center">
+        <div className="mx-2 w-screen">
+          <div className="text-center mb-10">
+            <motion.h2
+              className={`${ralewayBlackItalic.className} text-2xl md:text-3xl lg:text-6xl font-bold tracking-wide drop-shadow-[0_0_10px_rgba(0,0,0,0.25)]`}
+              initial={{ opacity: 0, letterSpacing: "0.6em" }}
+              whileInView={{
+                opacity: 1,
+                letterSpacing: "0.02em",
+                color: productTitleGlitchColors,
+              }}
+              viewport={{ once: true, amount: 0.75 }}
+              transition={{
+                opacity: { duration: 1.25, ease: "easeOut", delay: 0.1 },
+                letterSpacing: { duration: 1.25, ease: "easeOut", delay: 0.1 },
+                color: {
+                  duration: 1.25,
+                  delay: 0.1,
+                  times: productTitleGlitchColors.map(
+                    (_, i) => i / (productTitleGlitchColors.length - 1)
+                  ),
+                },
+              }}
+            >
+              Widest Range Of Products
+            </motion.h2>
+          </div>
+
+          <motion.div
+            variants={productGridVariants}
+            initial="hidden"
+            whileInView="show"
+            viewport={{ once: true, amount: 0.25 }}
+            className="flex flex-wrap justify-between gap-y-4 md:gap-y-6"
+          >
+            {PRODUCT_CATEGORIES.map((product) => (
+              <motion.div
+                key={product.id}
+                variants={productCardVariants}
+                whileHover={{ y: -4, scale: 1.015 }}
+                whileTap={{ scale: 0.99 }}
+                transition={{ type: "spring", stiffness: 260, damping: 20 }}
+                className="relative bg-transparent overflow-hidden flex-1 basis-[48%] md:basis-[31%] lg:basis-[18%] max-w-[49%] md:max-w-[32%] lg:max-w-[19%]"
+              >
+                <div className="relative aspect-square w-full rounded-t-md overflow-hidden">
+                  <Image
+                    src={product.image}
+                    alt={product.name}
+                    fill
+                    className="object-cover"
+                    sizes="(min-width: 1024px) 18vw, (min-width: 768px) 30vw, 45vw"
+                  />
+                  <div className="absolute inset-x-0 bottom-0 bg-black/55 py-2 flex items-center justify-center">
+                    <span
+                      className={`${ralewayBlackItalic.className} text-base md:text-xl lg:text-2xl font-bold tracking-wide text-white text-center`}
+                    >
+                      {product.name}
+                    </span>
+                  </div>
+                </div>
+              </motion.div>
+            ))}
+          </motion.div>
         </div>
       </section>
 
