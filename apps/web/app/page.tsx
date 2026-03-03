@@ -131,6 +131,95 @@ const productCardVariants = {
   },
 };
 
+const EXTRA_ITEMS_HOTSPOTS = [
+  {
+    id: "soft-toy",
+    top: "10%", // vertical position relative to image height
+    left: "72.5%", // horizontal position relative to image width
+    title: "Soft Toy",
+    description: "Mascots, plushies, soft toys and more.",
+  },
+  {
+    id: "tote-bag",
+    top: "70%", // vertical position relative to image height
+    left: "95%", // horizontal position relative to image width
+    title: "Tote Bag",
+    description: "Customised tote bags of various sizes,designs, zip pockets and different cloth qualities.",
+  },
+  {
+    id: "sling-bag",
+    top: "14%", // vertical position relative to image height
+    left: "55%", // horizontal position relative to image width
+    title: "Sling Bags",
+    description: "Sling bags of different qualities and custumizations available.",
+  },
+  {
+    id: "card-holder",
+    top: "17%", // vertical position relative to image height
+    left: "64%", // horizontal position relative to image width
+    title: "Card Holders",
+    description: "Passport and Card holders with sleek design available in metal, leather and plastic.",
+  },
+  {
+    id: "keychains",
+    top: "15%", // vertical position relative to image height
+    left: "16%", // horizontal position relative to image width
+    title: "Keychains",
+    description: "Acrylic, plastic, metal and wooden keychains of different customization with dye cuts.",
+  },
+  {
+    id: "desk-mat",
+    top: "72%", // vertical position relative to image height
+    left: "52%", // horizontal position relative to image width
+    title: "Desk Mat",
+    description: "Desk Mat, Mouse pads to make your work setup even better, different qualities and numerous designs.",
+  },
+  {
+    id: "metal-badge",
+    top: "72%", // vertical position relative to image height
+    left: "58%", // horizontal position relative to image width
+    title: "Metal Badges",
+    description: "Magnetic metal badges with logos for wearing over your tshirts and blazers or to pin to you backpacks.",
+  },
+  {
+    id: "tumbler",
+    top: "72%", // vertical position relative to image height
+    left: "71%", // horizontal position relative to image width
+    title: "Tumblers",
+    description: "High quality tumblers to keep developers hydrated, available in multiple colors and sizes.",
+  },
+  {
+    id: "thermal-cups",
+    top: "70%", // vertical position relative to image height
+    left: "78%", // horizontal position relative to image width
+    title: "Thermal Cups",
+    description: "Thermal cups to have coffee and other hot drinks to keep it warm using durable and high quality material used inside out.",
+  },
+  {
+    id: "stickers",
+    top: "55%", // vertical position relative to image height
+    left: "64%", // horizontal position relative to image width
+    title: "Stickers",
+    description: "Black Matte, hologram, plastic and high qulaity dye cuts stickers available.",
+  },
+  {
+    id: "shorts",
+    top: "47%", // vertical position relative to image height
+    left: "82%", // horizontal position relative to image width
+    title: "Shorts",
+    description: "Unisex shorts 100% cotton, bio washable and high quality logo prints.",
+  },
+  {
+    id: "socks",
+    top: "37%", // vertical position relative to image height
+    left: "87%", // horizontal position relative to image width
+    title: "Socks",
+    description: "High quality fabric socks to wear outdoors, gym and even for sports.",
+  },
+
+
+];
+
 export default function LandingPage() {
   const nfcSectionRef = useRef<HTMLElement>(null);
   const nfcScrollRef = useRef<HTMLDivElement>(null);
@@ -138,6 +227,7 @@ export default function LandingPage() {
   const nfcActiveIndexRef = useRef(0);
   const [hasHiddenExtrasTitle, setHasHiddenExtrasTitle] = useState(false);
   const [extrasTitleExiting, setExtrasTitleExiting] = useState(false);
+  const [activeHotspotId, setActiveHotspotId] = useState<string | null>(null);
   const autoScrollTimerRef = useRef<ReturnType<typeof setInterval> | null>(
     null
   );
@@ -537,23 +627,74 @@ export default function LandingPage() {
                   We also have....
                 </motion.h2>
               )}
-              <div
-                className="relative w-full h-auto"
-                style={{
-                  WebkitMaskImage:
-                    "radial-gradient(circle at center, black 72%, transparent 100%)",
-                  maskImage:
-                    "radial-gradient(circle at center, black 72%, transparent 100%)",
-                }}
-              >
-                <Image
-                  src="/images/items.png"
-                  alt="Additional items available"
-                  width={1600}
-                  height={500}
-                  className="w-full h-auto"
-                  priority={false}
-                />
+              <div className="relative w-full h-auto">
+                {/* Masked image only (keeps soft edges) */}
+                <div
+                  className="relative w-full h-auto"
+                  style={{
+                    WebkitMaskImage:
+                      "radial-gradient(circle at center, black 72%, transparent 100%)",
+                    maskImage:
+                      "radial-gradient(circle at center, black 72%, transparent 100%)",
+                  }}
+                >
+                  <Image
+                    src="/images/items.png"
+                    alt="Additional items available"
+                    width={1600}
+                    height={500}
+                    className="w-full h-auto"
+                    priority={false}
+                  />
+                </div>
+
+                {/* Hotspots overlay (NOT masked, so tips can overflow) */}
+                <div className="absolute inset-0 z-10">
+                  {EXTRA_ITEMS_HOTSPOTS.map((hotspot) => (
+                    <div
+                      key={hotspot.id}
+                      className="absolute"
+                      style={{
+                        top: hotspot.top,
+                        left: hotspot.left,
+                        transform: "translate(-50%, -50%)",
+                      }}
+                    >
+                      <motion.button
+                        type="button"
+                        onClick={() =>
+                          setActiveHotspotId(
+                            activeHotspotId === hotspot.id ? null : hotspot.id
+                          )
+                        }
+                        whileHover={{ scale: 1.15 }}
+                        className="relative flex items-center justify-center"
+                      >
+                        <span className="absolute inline-flex h-8 w-8 rounded-full bg-red-500/70 blur-[6px]" />
+                        <motion.span
+                          className="relative inline-flex h-3 w-3 rounded-full border-[1.2px] border-white bg-red-500 shadow-[0_0_12px_rgba(239,68,68,0.9)]"
+                          animate={{ scale: [1, 1.25, 1] }}
+                          transition={{
+                            duration: 1.4,
+                            repeat: Infinity,
+                            ease: "easeInOut",
+                          }}
+                        />
+                      </motion.button>
+
+                      {activeHotspotId === hotspot.id && (
+                        <div className="absolute left-1/2 bottom-full mb-3 w-52 -translate-x-1/2 rounded-lg bg-black/85 px-3 py-2 text-left shadow-lg backdrop-blur-sm">
+                          <p className="text-xs font-semibold text-white">
+                            {hotspot.title}
+                          </p>
+                          <p className="mt-1 text-[11px] text-white/80">
+                            {hotspot.description}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
           </div>
