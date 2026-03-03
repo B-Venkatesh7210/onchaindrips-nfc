@@ -211,7 +211,7 @@ const EXTRA_ITEMS_HOTSPOTS = [
   },
   {
     id: "socks",
-    top: "37%", // vertical position relative to image height
+    top: "35%", // vertical position relative to image height
     left: "87%", // horizontal position relative to image width
     title: "Socks",
     description: "High quality fabric socks to wear outdoors, gym and even for sports.",
@@ -648,53 +648,59 @@ export default function LandingPage() {
                   />
                 </div>
 
-                {/* Hotspots overlay (NOT masked, so tips can overflow) */}
-                <div className="absolute inset-0 z-10">
-                  {EXTRA_ITEMS_HOTSPOTS.map((hotspot) => (
-                    <div
-                      key={hotspot.id}
-                      className="absolute"
-                      style={{
-                        top: hotspot.top,
-                        left: hotspot.left,
-                        transform: "translate(-50%, -50%)",
-                      }}
-                    >
-                      <motion.button
-                        type="button"
-                        onClick={() =>
-                          setActiveHotspotId(
-                            activeHotspotId === hotspot.id ? null : hotspot.id
-                          )
-                        }
-                        whileHover={{ scale: 1.15 }}
-                        className="relative flex items-center justify-center"
+                {/* Hotspots overlay (NOT masked, so tips can overflow).
+                    Only appear after the intro title has fully exited. */}
+                {hasHiddenExtrasTitle && (
+                  <div className="absolute inset-0 z-10">
+                    {EXTRA_ITEMS_HOTSPOTS.map((hotspot) => (
+                      <motion.div
+                        key={hotspot.id}
+                        className="absolute"
+                        style={{
+                          top: hotspot.top,
+                          left: hotspot.left,
+                          transform: "translate(-50%, -50%)",
+                        }}
+                        initial={{ opacity: 0, scale: 0.8 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        transition={{ duration: 0.6, ease: "easeOut" }}
                       >
-                        <span className="absolute inline-flex h-8 w-8 rounded-full bg-red-500/70 blur-[6px]" />
-                        <motion.span
-                          className="relative inline-flex h-3 w-3 rounded-full border-[1.2px] border-white bg-red-500 shadow-[0_0_12px_rgba(239,68,68,0.9)]"
-                          animate={{ scale: [1, 1.25, 1] }}
-                          transition={{
-                            duration: 1.4,
-                            repeat: Infinity,
-                            ease: "easeInOut",
-                          }}
-                        />
-                      </motion.button>
+                        <motion.button
+                          type="button"
+                          onClick={() =>
+                            setActiveHotspotId(
+                              activeHotspotId === hotspot.id ? null : hotspot.id
+                            )
+                          }
+                          whileHover={{ scale: 1.15 }}
+                          className="relative flex items-center justify-center"
+                        >
+                          <span className="absolute inline-flex h-8 w-8 rounded-full bg-red-500/70 blur-[6px]" />
+                          <motion.span
+                            className="relative inline-flex h-2 w-2 lg:h-3 lg:w-3 rounded-full border-[1.2px] border-white bg-red-500 shadow-[0_0_12px_rgba(239,68,68,0.9)]"
+                            animate={{ scale: [1, 1.25, 1] }}
+                            transition={{
+                              duration: 1.4,
+                              repeat: Infinity,
+                              ease: "easeInOut",
+                            }}
+                          />
+                        </motion.button>
 
-                      {activeHotspotId === hotspot.id && (
-                        <div className="absolute left-1/2 bottom-full mb-3 w-52 -translate-x-1/2 rounded-lg bg-black/85 px-3 py-2 text-left shadow-lg backdrop-blur-sm">
-                          <p className="text-xs font-semibold text-white">
-                            {hotspot.title}
-                          </p>
-                          <p className="mt-1 text-[11px] text-white/80">
-                            {hotspot.description}
-                          </p>
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
+                        {activeHotspotId === hotspot.id && (
+                          <div className="absolute left-1/2 bottom-full mb-3 w-52 -translate-x-1/2 rounded-lg bg-black/85 px-3 py-2 text-left shadow-lg backdrop-blur-sm">
+                            <p className="text-xs font-semibold text-white">
+                              {hotspot.title}
+                            </p>
+                            <p className="mt-1 text-[11px] text-white/80">
+                              {hotspot.description}
+                            </p>
+                          </div>
+                        )}
+                      </motion.div>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
           </div>
