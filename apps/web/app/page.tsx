@@ -136,6 +136,8 @@ export default function LandingPage() {
   const nfcScrollRef = useRef<HTMLDivElement>(null);
   const [nfcActiveIndex, setNfcActiveIndex] = useState(0);
   const nfcActiveIndexRef = useRef(0);
+  const [hasHiddenExtrasTitle, setHasHiddenExtrasTitle] = useState(false);
+  const [extrasTitleExiting, setExtrasTitleExiting] = useState(false);
   const autoScrollTimerRef = useRef<ReturnType<typeof setInterval> | null>(
     null
   );
@@ -401,7 +403,7 @@ export default function LandingPage() {
       </section>
 
       {/* Product range section */}
-      <section className="bg-gradient-to-b from-red-50 to-red-100/70 pt-4 flex justify-center items-center">
+      <section className="bg-gradient-to-b from-red-50 to-red-100/70 pt-8 flex justify-center items-center">
         <div className="mx-2 w-screen">
           <div className="text-center mb-10">
             <motion.h2
@@ -440,30 +442,121 @@ export default function LandingPage() {
               <motion.div
                 key={product.id}
                 variants={productCardVariants}
-                whileHover={{ y: -4, scale: 1.015 }}
                 whileTap={{ scale: 0.99 }}
                 transition={{ type: "spring", stiffness: 260, damping: 20 }}
-                className="relative bg-transparent overflow-hidden flex-1 basis-[48%] md:basis-[31%] lg:basis-[18%] max-w-[49%] md:max-w-[32%] lg:max-w-[19%]"
+                className="group relative bg-transparent overflow-hidden flex-1 basis-[48%] md:basis-[31%] lg:basis-[18%] max-w-[49%] md:max-w-[32%] lg:max-w-[19%]"
               >
                 <div className="relative aspect-square w-full rounded-t-md overflow-hidden">
-                  <Image
-                    src={product.image}
-                    alt={product.name}
-                    fill
-                    className="object-cover"
-                    sizes="(min-width: 1024px) 18vw, (min-width: 768px) 30vw, 45vw"
-                  />
-                  <div className="absolute inset-x-0 bottom-0 bg-black/55 py-2 flex items-center justify-center">
-                    <span
-                      className={`${ralewayBlackItalic.className} text-base md:text-xl lg:text-2xl font-bold tracking-wide text-white text-center`}
-                    >
-                      {product.name}
-                    </span>
+                  <div className="relative w-full h-full overflow-hidden">
+                    <Image
+                      src={product.image}
+                      alt={product.name}
+                      fill
+                      className="object-cover transition-transform duration-500 ease-out group-hover:scale-110"
+                      sizes="(min-width: 1024px) 18vw, (min-width: 768px) 30vw, 45vw"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/45 to-transparent flex items-center justify-center transition-colors duration-500">
+                      <span
+                        className={`${ralewayBlackItalic.className} text-base md:text-xl lg:text-2xl font-bold tracking-wide text-white text-center transform translate-y-8 md:translate-y-10 lg:translate-y-12 transition-transform duration-500 group-hover:translate-y-0`}
+                      >
+                        {product.name}
+                      </span>
+                    </div>
                   </div>
                 </div>
               </motion.div>
             ))}
           </motion.div>
+        </div>
+      </section>
+
+      {/* Additional items section */}
+      <section className="relative border-y border-red-600/20 py-12 px-4 bg-[radial-gradient(circle_at_center,_#4a000b_0%,_#2b0004_55%,_#120002_100%)]">
+        {/* Vignette overlay */}
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/30 via-transparent to-black/60" />
+
+        <div className="relative max-w-6xl mx-auto flex flex-col items-center">
+          <div className="relative w-full max-w-4xl flex justify-center">
+            {/* Ambient glow behind image */}
+            <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+              <div className="w-3/4 h-3/4 rounded-full bg-[radial-gradient(circle,_rgba(255,0,60,0.35)_0%,_transparent_70%)] blur-[140px] opacity-40" />
+            </div>
+
+            {/* Image with soft edge mask */}
+            <div className="relative w-full">
+              {!hasHiddenExtrasTitle && !extrasTitleExiting && (
+                <motion.h2
+                  className={`${ralewayBlackItalic.className} pointer-events-none absolute inset-0 z-20 flex items-center justify-center text-2xl md:text-3xl lg:text-6xl font-bold tracking-wide text-white text-center`}
+                  initial={{ opacity: 0, letterSpacing: "0.6em" }}
+                  whileInView={{
+                    opacity: 1,
+                    letterSpacing: "0.02em",
+                    color: glitchColors,
+                  }}
+                  viewport={{ once: true, amount: 0.7 }}
+                  transition={{
+                    opacity: { duration: 1.25, ease: "easeOut", delay: 0.1 },
+                    letterSpacing: { duration: 1.25, ease: "easeOut", delay: 0.1 },
+                    color: {
+                      duration: 1.25,
+                      delay: 0.1,
+                      times: glitchColors.map(
+                        (_, i) => i / (glitchColors.length - 1)
+                      ),
+                    },
+                  }}
+                  onAnimationComplete={() => {
+                    setTimeout(() => setExtrasTitleExiting(true), 3000);
+                  }}
+                >
+                  We also have....
+                </motion.h2>
+              )}
+              {extrasTitleExiting && !hasHiddenExtrasTitle && (
+                <motion.h2
+                  className={`${ralewayBlackItalic.className} pointer-events-none absolute inset-0 z-20 flex items-center justify-center text-2xl md:text-3xl lg:text-4xl font-bold tracking-wide text-white text-center`}
+                  initial={{ opacity: 1, letterSpacing: "0.02em", color: "#ffffff" }}
+                  animate={{
+                    opacity: [1, 1, 0],
+                    letterSpacing: ["0.02em", "0.3em", "0.6em"],
+                    color: glitchColors,
+                  }}
+                  transition={{
+                    duration: 1.1,
+                    ease: "easeInOut",
+                    opacity: { times: [0, 0.6, 1] },
+                    letterSpacing: { times: [0, 0.7, 1] },
+                    color: {
+                      times: glitchColors.map(
+                        (_, i) => i / (glitchColors.length - 1)
+                      ),
+                    },
+                  }}
+                  onAnimationComplete={() => setHasHiddenExtrasTitle(true)}
+                >
+                  We also have....
+                </motion.h2>
+              )}
+              <div
+                className="relative w-full h-auto"
+                style={{
+                  WebkitMaskImage:
+                    "radial-gradient(circle at center, black 72%, transparent 100%)",
+                  maskImage:
+                    "radial-gradient(circle at center, black 72%, transparent 100%)",
+                }}
+              >
+                <Image
+                  src="/images/items.png"
+                  alt="Additional items available"
+                  width={1600}
+                  height={500}
+                  className="w-full h-auto"
+                  priority={false}
+                />
+              </div>
+            </div>
+          </div>
         </div>
       </section>
 
