@@ -220,6 +220,15 @@ const EXTRA_ITEMS_HOTSPOTS = [
 
 ];
 
+const TRUSTED_BY_CLIENTS = [
+  { name: "Bybit", src: "/images/clients/bybit.png", height: 80, width: 240 },
+  { name: "HedgeX", src: "/images/clients/hedgex.png", height: 80, width: 240 },
+  { name: "IBT26", src: "/images/clients/ibt26.svg", height: 40, width: 120 },
+  { name: "IBW", src: "/images/clients/ibw.svg", height: 80, width: 240 },
+  { name: "TRJ", src: "/images/clients/trj.png", height: 40, width: 120 },
+  { name: "Trust", src: "/images/clients/trust.svg", height: 160, width: 480 },
+];
+
 export default function LandingPage() {
   const nfcSectionRef = useRef<HTMLElement>(null);
   const nfcScrollRef = useRef<HTMLDivElement>(null);
@@ -703,6 +712,52 @@ export default function LandingPage() {
                 )}
               </div>
             </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Trusted By — client logos marquee */}
+      <section className="border-y border-red-600/20 bg-black/40 py-12 overflow-hidden">
+        <p className="text-center text-white/80 text-sm lg:text-3xl font-medium uppercase tracking-widest mb-8">
+          Trusted By
+        </p>
+        <div className="relative w-full">
+          <div
+            className="flex overflow-hidden"
+            style={{
+              maskImage:
+                "linear-gradient(to right, transparent, black 8%, black 92%, transparent)",
+              WebkitMaskImage:
+                "linear-gradient(to right, transparent, black 8%, black 92%, transparent)",
+            }}
+          >
+            <motion.div
+              className="flex shrink-0 items-center justify-around gap-12 md:gap-16 pr-12 md:pr-16"
+              animate={{ x: ["0%", "-50%"] }}
+              transition={{
+                x: { duration: 28, repeat: Infinity, ease: "linear" },
+              }}
+            >
+              {[...TRUSTED_BY_CLIENTS, ...TRUSTED_BY_CLIENTS].map((client, i) => {
+                const h = client.height ?? 40;
+                const w = client.width ?? 120;
+                return (
+                  <div
+                    key={`${client.name}-${i}`}
+                    className="flex shrink-0 items-center justify-center"
+                  >
+                    <Image
+                      src={client.src}
+                      alt={client.name}
+                      width={w}
+                      height={h}
+                      className="w-auto object-contain"
+                      style={{ height: h, maxWidth: w }}
+                    />
+                  </div>
+                );
+              })}
+            </motion.div>
           </div>
         </div>
       </section>
