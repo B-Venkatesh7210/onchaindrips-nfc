@@ -431,6 +431,16 @@ export default function LandingPage() {
               <p className="mt-4 text-sm md:text-base 2xl:text-2xl text-white/80 leading-relaxed">
                 {NFC_HOW_IT_WORKS[nfcActiveIndex].description}
               </p>
+              <div className="mt-6">
+                <Link
+                  href="/drops"
+                  onClick={(e) => e.preventDefault()}
+                  className="group inline-block rounded-xl bg-red-600 px-6 py-2.5 text-sm md:text-base font-semibold text-white shadow-[0_0_16px_rgba(220,38,38,0.35)] transition-all duration-300 hover:bg-red-700/70 hover:shadow-none hover:cursor-not-allowed"
+                >
+                  <span className="group-hover:hidden">Explore drops</span>
+                  <span className="hidden group-hover:inline">Coming soon</span>
+                </Link>
+              </div>
             </motion.div>
 
             {/* Image column — right (drag to change step) */}
@@ -761,8 +771,80 @@ export default function LandingPage() {
           </div>
         </div>
       </section>
+      
+      {/* What makes us different */}
+      <section className="border-y border-red-600/20 bg-gradient-to-br from-black via-black/90 to-red-950/60 py-16 px-4">
+        <div className="mx-auto max-w-6xl flex flex-col lg:flex-row gap-10 items-start">
+          <div className="w-full lg:w-2/5 space-y-4">
+            <p className="inline-flex items-center gap-2 rounded-full border border-red-500/40 bg-red-950/40 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-red-200">
+              <span>✨</span>
+              <span>What makes us different</span>
+            </p>
+            <h2 className="text-2xl md:text-3xl lg:text-4xl font-bold text-white">
+              Merch that feels like a product, not an afterthought.
+            </h2>
+            <p className="text-sm md:text-base text-white/70">
+              We build merch like a product line—designed from scratch, manufactured in-house, and shipped reliably worldwide.
+            </p>
+          </div>
+          <div className="w-full lg:w-3/5 grid grid-cols-1 md:grid-cols-2 gap-5">
+            <div className="bg-gradient-to-br from-red-900/60 via-red-700/20 to-red-900/60 p-[1px] rounded-2xl">
+              <div className="h-full rounded-2xl bg-black/90 p-4 flex flex-col gap-2">
+                <div className="flex items-center gap-3">
+                  <span className="text-2xl">🏭</span>
+                  <h3 className="text-base md:text-lg font-semibold text-white">
+                    Manufacturers, not middlemen
+                  </h3>
+                </div>
+                <p className="text-xs md:text-sm text-white/70">
+                  We don&apos;t deal with third-party vendors. Every apparel is made from scratch so fits, fabrics, and finishes match your brand—not a catalog SKU.
+                </p>
+              </div>
+            </div>
+            <div className="bg-gradient-to-br from-red-900/60 via-red-700/20 to-red-900/60 p-[1px] rounded-2xl">
+              <div className="h-full rounded-2xl bg-black/90 p-4 flex flex-col gap-2">
+                <div className="flex items-center gap-3">
+                  <span className="text-2xl">🏬</span>
+                  <h3 className="text-base md:text-lg font-semibold text-white">
+                    Real warehouses, real operations
+                  </h3>
+                </div>
+                <p className="text-xs md:text-sm text-white/70">
+                  Inventory lives in our warehouses across major Indian cities—not in your community manager&apos;s living room—so picking, packing, and returns stay professional.
+                </p>
+              </div>
+            </div>
+            <div className="bg-gradient-to-br from-red-900/60 via-red-700/20 to-red-900/60 p-[1px] rounded-2xl">
+              <div className="h-full rounded-2xl bg-black/90 p-4 flex flex-col gap-2">
+                <div className="flex items-center gap-3">
+                  <span className="text-2xl">🧵</span>
+                  <h3 className="text-base md:text-lg font-semibold text-white">
+                    Quality over &quot;free merch&quot;
+                  </h3>
+                </div>
+                <p className="text-xs md:text-sm text-white/70">
+                  We don&apos;t treat merch as throwaway freebies. We obsess over quality so people want to wear your brand every day—not just once at a conference.
+                </p>
+              </div>
+            </div>
+            <div className="bg-gradient-to-br from-red-900/60 via-red-700/20 to-red-900/60 p-[1px] rounded-2xl">
+              <div className="h-full rounded-2xl bg-black/90 p-4 flex flex-col gap-2">
+                <div className="flex items-center gap-3">
+                  <span className="text-2xl">🌍🚀</span>
+                  <h3 className="text-base md:text-lg font-semibold text-white">
+                    Global shipping, India-strong pricing
+                  </h3>
+                </div>
+                <p className="text-xs md:text-sm text-white/70">
+                  We ship globally and deliver ahead of schedule—while confidently challenging Chinese market pricing <span className="whitespace-nowrap">and quality.</span>
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
 
-      {/* Value / Features strip */}
+      {/* Value / Features strip + Book a call */}
       <section className="border-y border-red-600/20 bg-black/30 py-16 px-4">
         <div className="mx-auto max-w-5xl grid grid-cols-1 md:grid-cols-3 gap-10 text-center">
           <div>
@@ -831,10 +913,32 @@ export default function LandingPage() {
             </p>
           </div>
         </div>
+
+        <div className="mx-auto mt-12 max-w-3xl text-center space-y-4">
+          <h2 className="text-2xl md:text-3xl lg:text-4xl font-bold text-white">
+            Book a call with us
+          </h2>
+          <p className="text-sm md:text-base text-white/80">
+            Get your next exclusive merch drop designed, manufactured, and shipped by our team.
+          </p>
+          <p className="text-xs md:text-sm text-white/60">
+            We ship globally and operate warehouses in major cities across India for faster, more reliable fulfillment.
+          </p>
+          <div className="pt-4">
+            <a
+              href="https://calendly.com/venkumj1234/b-venkatesh"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-block rounded-xl bg-red-600 px-8 py-3 text-sm md:text-base font-semibold text-white shadow-[0_0_18px_rgba(220,38,38,0.45)] hover:bg-red-500 hover:shadow-[0_0_26px_rgba(220,38,38,0.6)] transition-all duration-300"
+            >
+              Book a call
+            </a>
+          </div>
+        </div>
       </section>
 
       {/* NFC-enabled t-shirts & drops — main CTA section */}
-      <section id="nfc-drops" className="py-24 px-4">
+      {/* <section id="nfc-drops" className="py-24 px-4">
         <div className="mx-auto max-w-4xl text-center">
           <h2 className="text-3xl md:text-4xl font-bold text-white">
             NFC-enabled t-shirts & drops
@@ -871,10 +975,10 @@ export default function LandingPage() {
             Explore drops
           </Link>
         </div>
-      </section>
+      </section> */}
 
       {/* Footer strip */}
-      <section className="border-t border-red-600/20 py-10 px-4">
+      {/* <section className="border-t border-red-600/20 py-10 px-4">
         <div className="mx-auto max-w-5xl flex flex-col sm:flex-row items-center justify-between gap-4">
           <p className="text-sm text-white/50">
             OnChainDrips — B2B merchandise for web3 brands.
@@ -894,7 +998,7 @@ export default function LandingPage() {
             </Link>
           </div>
         </div>
-      </section>
+      </section> */}
     </>
   );
 }
