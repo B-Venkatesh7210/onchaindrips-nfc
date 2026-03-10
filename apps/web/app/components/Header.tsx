@@ -4,6 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { Twitter, Send, Mail as MailIcon } from "lucide-react";
 import { getStoredAddress, loginWithGoogle, logout } from "@/lib/auth";
 import { ADMIN_ADDRESS } from "@/lib/api";
 
@@ -19,9 +20,18 @@ function normalizeAddress(addr: string): string {
   return addr.toLowerCase().trim();
 }
 
-const navTabs = [
+const appNavTabs = [
   { name: "Drops", href: "/drops" },
   { name: "Dashboard", href: "/dashboard" },
+];
+
+const landingNavTabs = [
+  { name: "NFC", href: "/#nfc" },
+  { name: "Products", href: "/#products" },
+  { name: "Extras", href: "/#extras" },
+  { name: "Trusted by", href: "/#trusted-by" },
+  { name: "Why us", href: "/#why-us" },
+  { name: "Book a call", href: "/#book-call" },
 ];
 
 export default function Header() {
@@ -100,11 +110,13 @@ export default function Header() {
     ? "bg-black/20 backdrop-blur-md border-red-600/10"
     : "bg-[rgba(20,10,20,0.55)] backdrop-blur-2xl border-red-600/20";
   const headerShrink = "border-red-600/30";
-  const navLinkClass = "text-white/80 hover:text-white";
+  const navLinkClass =
+    "relative text-white/70 hover:text-white font-semibold tracking-[0.16em] uppercase text-[10px] md:text-xs";
   const btnClass =
     "bg-red-600 hover:bg-red-700 text-white shadow-[0_0_16px_0_rgba(220,38,38,0.6)] hover:shadow-[0_0_32px_4px_rgba(220,38,38,0.8)]";
   const menuOpenClass = "bg-black/95 border-red-600/20";
-  const menuLinkClass = "text-white hover:text-red-500";
+  const menuLinkClass =
+    "text-white/80 hover:text-red-400 font-semibold tracking-[0.18em] uppercase";
 
   return (
     <header
@@ -138,18 +150,18 @@ export default function Header() {
 
         {/* Center: Nav tabs (desktop) */}
         <nav className="hidden md:flex items-center gap-6">
-          {navTabs.map((tab) => (
+          {(isHome ? landingNavTabs : appNavTabs).map((tab) => (
             <Link
               key={tab.name}
               href={tab.href}
               className={`${navLinkClass} px-4 py-1 rounded-full transition-colors duration-200 font-medium ${
-                pathname === tab.href ? "text-white" : ""
+                !isHome && pathname === tab.href ? "text-white" : ""
               }`}
             >
               {tab.name}
             </Link>
           ))}
-          {isAdmin && (
+          {!isHome && isAdmin && (
             <Link
               href="/admin/create"
               className={`${navLinkClass} px-4 py-1 rounded-full transition-colors duration-200 font-medium ${
@@ -161,70 +173,74 @@ export default function Header() {
           )}
         </nav>
 
-        {/* Right: Sign in / Wallet */}
+        {/* Right: Sign in / Wallet (drops/dashboard only) + mobile menu button */}
         <div className="flex items-center flex-1 md:flex-none justify-end">
-          {!address ? (
-            <button
-              type="button"
-              onClick={handleSignIn}
-              className={`hidden md:inline-flex ${btnClass} px-6 py-2 text-base font-semibold transition-all duration-300 rounded-lg cursor-pointer`}
-            >
-              Sign in
-            </button>
-          ) : (
-            <div className="relative hidden md:block" ref={dropdownRef}>
-              <button
-                type="button"
-                onClick={() => setDropdownOpen((o) => !o)}
-                className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium ${btnClass} transition-all duration-300`}
-              >
-                <span className="max-w-[120px] truncate">
-                  {shortenAddress(address)}
-                </span>
-                <svg
-                  className={`h-4 w-4 shrink-0 transition ${
-                    dropdownOpen ? "rotate-180" : ""
-                  }`}
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
+          {!isHome && (
+            <>
+              {!address ? (
+                <button
+                  type="button"
+                  onClick={handleSignIn}
+                  className={`hidden md:inline-flex ${btnClass} px-6 py-2 text-base font-semibold transition-all duration-300 rounded-lg cursor-pointer`}
                 >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M19 9l-7 7-7-7"
-                  />
-                </svg>
-              </button>
-              {dropdownOpen && (
-                <div className="absolute right-0 mt-1 w-48 rounded-lg border border-red-600/30 bg-black/95 backdrop-blur-md py-1 shadow-xl">
-                  <Link
-                    href="/dashboard"
-                    onClick={() => setDropdownOpen(false)}
-                    className={`block px-4 py-2 text-sm ${menuLinkClass} hover:bg-red-600/10 rounded-t-lg`}
-                  >
-                    Dashboard
-                  </Link>
-                  {isAdmin && (
-                    <Link
-                      href="/admin/create"
-                      onClick={() => setDropdownOpen(false)}
-                      className={`block px-4 py-2 text-sm ${menuLinkClass} hover:bg-red-600/10`}
-                    >
-                      Create a drop
-                    </Link>
-                  )}
+                  Sign in
+                </button>
+              ) : (
+                <div className="relative hidden md:block" ref={dropdownRef}>
                   <button
                     type="button"
-                    onClick={handleLogout}
-                    className={`block w-full px-4 py-2 text-left text-sm ${menuLinkClass} hover:bg-red-600/10 rounded-b-lg`}
+                    onClick={() => setDropdownOpen((o) => !o)}
+                    className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium ${btnClass} transition-all duration-300`}
                   >
-                    Sign out
+                    <span className="max-w-[120px] truncate">
+                      {shortenAddress(address)}
+                    </span>
+                    <svg
+                      className={`h-4 w-4 shrink-0 transition ${
+                        dropdownOpen ? "rotate-180" : ""
+                      }`}
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M19 9l-7 7-7-7"
+                      />
+                    </svg>
                   </button>
+                  {dropdownOpen && (
+                    <div className="absolute right-0 mt-1 w-48 rounded-lg border border-red-600/30 bg-black/95 backdrop-blur-md py-1 shadow-xl">
+                      <Link
+                        href="/dashboard"
+                        onClick={() => setDropdownOpen(false)}
+                        className={`block px-4 py-2 text-sm ${menuLinkClass} hover:bg-red-600/10 rounded-t-lg`}
+                      >
+                        Dashboard
+                      </Link>
+                      {isAdmin && (
+                        <Link
+                          href="/admin/create"
+                          onClick={() => setDropdownOpen(false)}
+                          className={`block px-4 py-2 text-sm ${menuLinkClass} hover:bg-red-600/10`}
+                        >
+                          Create a drop
+                        </Link>
+                      )}
+                      <button
+                        type="button"
+                        onClick={handleLogout}
+                        className={`block w-full px-4 py-2 text-left text-sm ${menuLinkClass} hover:bg-red-600/10 rounded-b-lg`}
+                      >
+                        Sign out
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
-            </div>
+            </>
           )}
 
           {/* Mobile menu button */}
@@ -293,7 +309,7 @@ export default function Header() {
             </svg>
           </button>
           <nav className="py-6 space-y-4 flex flex-col items-center">
-            {navTabs.map((tab) => (
+            {(isHome ? landingNavTabs : appNavTabs).map((tab) => (
               <Link
                 key={tab.name}
                 href={tab.href}
@@ -303,7 +319,7 @@ export default function Header() {
                 {tab.name}
               </Link>
             ))}
-            {isAdmin && (
+            {!isHome && isAdmin && (
               <Link
                 href="/admin/create"
                 onClick={() => setIsMenuOpen(false)}
@@ -312,29 +328,64 @@ export default function Header() {
                 Create a drop
               </Link>
             )}
-            {!address ? (
-              <button
-                type="button"
-                onClick={() => {
-                  handleSignIn();
-                  setIsMenuOpen(false);
-                }}
-                className={`${btnClass} px-6 py-2 text-base font-semibold rounded-lg w-full max-w-xs mt-8`}
-              >
-                Sign in
-              </button>
-            ) : (
-              <div className="w-full max-w-xs mt-8 space-y-2">
-                <p className="text-white/70 text-center text-sm truncate px-4">
-                  {shortenAddress(address)}
-                </p>
+            {!isHome ? (
+              !address ? (
                 <button
                   type="button"
-                  onClick={handleLogout}
-                  className={`${menuLinkClass} block w-full px-4 py-3 text-center font-semibold hover:bg-red-600/10 rounded-full`}
+                  onClick={() => {
+                    handleSignIn();
+                    setIsMenuOpen(false);
+                  }}
+                  className={`${btnClass} px-6 py-2 text-base font-semibold rounded-lg w-full max-w-xs mt-8`}
                 >
-                  Sign out
+                  Sign in
                 </button>
+              ) : (
+                <div className="w-full max-w-xs mt-8 space-y-2">
+                  <p className="text-white/70 text-center text-sm truncate px-4">
+                    {shortenAddress(address)}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={handleLogout}
+                    className={`${menuLinkClass} block w-full px-4 py-3 text-center font-semibold hover:bg-red-600/10 rounded-full`}
+                  >
+                    Sign out
+                  </button>
+                </div>
+              )
+            ) : (
+              <div className="mt-10 flex flex-col items-center gap-3 text-sm text-white/70">
+                <p className="uppercase tracking-[0.2em] text-xs text-white/40">
+                  Socials
+                </p>
+                <div className="flex items-center gap-6">
+                  <Link
+                    href="https://twitter.com/onchaindrips"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex flex-col items-center gap-1"
+                  >
+                    <Twitter className="h-5 w-5" />
+                    <span className="text-xs">Twitter</span>
+                  </Link>
+                  <Link
+                    href="https://t.me/onchaindrips"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex flex-col items-center gap-1"
+                  >
+                    <Send className="h-5 w-5" />
+                    <span className="text-xs">Telegram</span>
+                  </Link>
+                  <a
+                    href="mailto:hello@onchaindrips.xyz"
+                    className="flex flex-col items-center gap-1"
+                  >
+                    <MailIcon className="h-5 w-5" />
+                    <span className="text-xs">Mail</span>
+                  </a>
+                </div>
               </div>
             )}
           </nav>

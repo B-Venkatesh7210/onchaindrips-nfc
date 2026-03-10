@@ -377,6 +377,7 @@ export default function LandingPage() {
 
       {/* How NFC-enabled t-shirts work — rebuilt single-image arc (no horizontal slide) */}
       <section
+        id="nfc"
         ref={nfcSectionRef}
         className="py-16 md:py-20 border-y border-red-600/20 bg-black/40"
       >
@@ -513,7 +514,10 @@ export default function LandingPage() {
       </section>
 
       {/* Product range section */}
-      <section className="bg-gradient-to-b from-red-50 to-red-100/70 pt-8 flex justify-center items-center">
+      <section
+        id="products"
+        className="bg-gradient-to-b from-red-50 to-red-100/70 pt-8 flex justify-center items-center"
+      >
         <div className="mx-2 w-screen">
           <div className="text-center mb-10">
             <motion.h2
@@ -581,7 +585,10 @@ export default function LandingPage() {
       </section>
 
       {/* Additional items section */}
-      <section className="relative border-y border-red-600/20 py-12 px-4 bg-[radial-gradient(circle_at_center,_#4a000b_0%,_#2b0004_55%,_#120002_100%)]">
+      <section
+        id="extras"
+        className="relative border-y border-red-600/20 py-12 px-4 bg-[radial-gradient(circle_at_center,_#4a000b_0%,_#2b0004_55%,_#120002_100%)]"
+      >
         {/* Vignette overlay */}
         <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/30 via-transparent to-black/60" />
 
@@ -728,7 +735,10 @@ export default function LandingPage() {
       </section>
 
       {/* Trusted By — client logos marquee */}
-      <section className="border-y border-red-600/20 bg-black/40 py-12 overflow-hidden">
+      <section
+        id="trusted-by"
+        className="border-y border-red-600/20 bg-black/40 py-12 overflow-hidden"
+      >
         <p className="text-center text-white/80 text-sm lg:text-3xl font-medium uppercase tracking-widest mb-8">
           Trusted By
         </p>
@@ -774,7 +784,10 @@ export default function LandingPage() {
       </section>
       
       {/* What makes us different */}
-      <section className="border-y border-red-600/20 bg-gradient-to-br from-black via-black/90 to-red-950/60 py-16 px-4">
+      <section
+        id="why-us"
+        className="border-y border-red-600/20 bg-gradient-to-br from-black via-black/90 to-red-950/60 py-16 px-4"
+      >
         <div className="mx-auto max-w-6xl flex flex-col lg:flex-row gap-10 items-start">
           <div className="w-full lg:w-2/5 space-y-4">
             <p className="inline-flex items-center gap-2 rounded-full border border-red-500/40 bg-red-950/40 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-red-200">
@@ -846,7 +859,10 @@ export default function LandingPage() {
       </section>
 
       {/* Value / Features strip + Book a call */}
-      <section className="border-y border-red-600/20 bg-black/30 py-16 px-4">
+      <section
+        id="book-call"
+        className="border-y border-red-600/20 bg-black/30 py-16 px-4"
+      >
         <div className="mx-auto max-w-5xl grid grid-cols-1 md:grid-cols-3 gap-10 text-center">
           <div>
             <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-red-600/20 text-red-400 mb-4">
