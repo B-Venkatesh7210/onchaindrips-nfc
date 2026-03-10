@@ -4,6 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useRef, useState, useEffect, useCallback } from "react";
 import { motion } from "framer-motion";
+import { Twitter, Send, Mail as MailIcon } from "lucide-react";
 import { ralewayBlackItalic } from "./fonts";
 
 const NFC_HOW_IT_WORKS = [
@@ -377,7 +378,7 @@ export default function LandingPage() {
       {/* How NFC-enabled t-shirts work — rebuilt single-image arc (no horizontal slide) */}
       <section
         ref={nfcSectionRef}
-        className="py-16 md:py-20 border-y border-red-600/20 bg-black/40 overflow-hidden"
+        className="py-16 md:py-20 border-y border-red-600/20 bg-black/40"
       >
         <div className="w-full max-w-[92vw] 2xl:max-w-[2200px] mx-auto px-4 md:px-6 lg:px-10 mb-8 relative">
           {/* Centered overlay heading — animates on enter, pointer-events-none so it doesn't block interactions */}
@@ -420,7 +421,7 @@ export default function LandingPage() {
               className="w-full md:w-1/2 bg-transparent p-0 md:pr-8"
             >
               <div className="flex flex-row justify-start items-center gap-4">
-                <span className="text-xl 2xl:text-8xl lg:text-6xl font-semibold text-red-400 uppercase tracking-wider">
+                <span className="text-4xl 2xl:text-8xl lg:text-6xl font-semibold text-red-400 uppercase tracking-wider">
                   {String(NFC_HOW_IT_WORKS[nfcActiveIndex].id).padStart(2, "0")}
                 </span>
                 <h3 className="mt-2 text-2xl 2xl:text-6xl lg:text-4xl md:text-3xl font-bold text-white">
@@ -921,9 +922,6 @@ export default function LandingPage() {
           <p className="text-sm md:text-base text-white/80">
             Get your next exclusive merch drop designed, manufactured, and shipped by our team.
           </p>
-          <p className="text-xs md:text-sm text-white/60">
-            We ship globally and operate warehouses in major cities across India for faster, more reliable fulfillment.
-          </p>
           <div className="pt-4">
             <a
               href="https://calendly.com/venkumj1234/b-venkatesh"
@@ -977,28 +975,41 @@ export default function LandingPage() {
         </div>
       </section> */}
 
-      {/* Footer strip */}
-      {/* <section className="border-t border-red-600/20 py-10 px-4">
-        <div className="mx-auto max-w-5xl flex flex-col sm:flex-row items-center justify-between gap-4">
-          <p className="text-sm text-white/50">
-            OnChainDrips — B2B merchandise for web3 brands.
+      {/* Thin footer strip */}
+      <section className="border-t border-red-600/20 bg-black/60 py-4 px-4">
+        <div className="mx-auto max-w-5xl flex flex-col sm:flex-row items-center justify-between gap-3 text-xs md:text-sm">
+          <p className="text-white/50">
+            OnChainDrips — NFC-enabled merch for web3 brands.
           </p>
-          <div className="flex items-center gap-6">
+          <div className="flex items-center gap-4">
             <Link
-              href="/drops"
-              className="text-sm font-medium text-white/70 hover:text-white transition-colors"
+              href="https://twitter.com/onchaindrips"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-white/70 hover:text-white transition-colors flex items-center gap-1.5"
             >
-              Drops
+              <Twitter className="h-4 w-4" aria-hidden="true" />
+              <span>Twitter</span>
             </Link>
             <Link
-              href="/dashboard"
-              className="text-sm font-medium text-white/70 hover:text-white transition-colors"
+              href="https://t.me/VenmusTheRapper"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-white/70 hover:text-white transition-colors flex items-center gap-1.5"
             >
-              Dashboard
+              <Send className="h-4 w-4" aria-hidden="true" />
+              <span>Telegram</span>
             </Link>
+            <a
+              href="mailto:hello@onchaindrips.xyz"
+              className="text-white/70 hover:text-white transition-colors flex items-center gap-1.5"
+            >
+              <MailIcon className="h-4 w-4" aria-hidden="true" />
+              <span>Mail</span>
+            </a>
           </div>
         </div>
-      </section> */}
+      </section>
     </>
   );
 }
