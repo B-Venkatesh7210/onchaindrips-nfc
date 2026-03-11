@@ -5,6 +5,9 @@ import Header from "./components/Header";
 export const metadata: Metadata = {
   title: "OnChainDrips",
   description: "OnChainDrips Sui + Next.js",
+  icons: {
+    icon: "/images/logo.png",
+  },
 };
 
 export default function RootLayout({
